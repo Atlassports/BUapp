@@ -13,6 +13,9 @@ const DB_PATH = process.env.SIDEKICK_DB ?? ".data/sidekick.db";
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
+-- Wait for a contended write lock rather than failing instantly. A dev server
+-- and a build (or seed) touching the same file otherwise collide on startup.
+PRAGMA busy_timeout = 5000;
 
 CREATE TABLE IF NOT EXISTS users (
   id            TEXT PRIMARY KEY,

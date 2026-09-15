@@ -22,11 +22,34 @@ npm run dev        # http://localhost:3000
 Sign in with any seeded address — `alexr@bu.edu`, `priyan@bu.edu`,
 `marcust@bu.edu` — or any other `@bu.edu` address to create a new account. In
 development the verification code is **printed to the server console**; there is
-no mail provider to configure. In production the app refuses to start a signup it
-can't deliver, rather than silently dropping the code.
+no mail provider to configure.
 
-Copy `.env.example` to `.env` to set the session secret, database path and a
-Resend API key for real email.
+## Turning on real signups
+
+Development prints codes to the console. To actually email them:
+
+1. Create an API key at [resend.com/api-keys](https://resend.com/api-keys)
+2. **Verify a domain** at [resend.com/domains](https://resend.com/domains)
+3. Copy `.env.example` to `.env` and set `RESEND_API_KEY`, `MAIL_FROM` (an
+   address at that verified domain) and `SIDEKICK_SECRET`
+4. Confirm delivery before trusting it:
+
+```bash
+npm run mail:test -- someone@bu.edu
+```
+
+**Step 2 is not optional.** Until a domain is verified, Resend delivers only to
+the address that owns the API key — so it will reach you and refuse every
+student, which looks like the app working right up until it doesn't. The test
+command names that exact failure when it happens.
+
+Two things are hard failures in production rather than warnings, because both
+would otherwise look identical to a working system from the inside:
+
+- **No `SIDEKICK_SECRET`.** It signs the pending-signup cookie. On the
+  checked-in default, anyone could forge that cookie and register any `@bu.edu`
+  address without ever receiving a code.
+- **No mail provider.** A dropped code is a student who can't sign up.
 
 ## What's built
 
@@ -50,6 +73,26 @@ The full core loop is real and enforced server-side:
 
 Payments are **simulated**. Escrow, payouts, fees and disputes are modeled
 end-to-end in the UI and data, behind an interface Stripe Connect drops into.
+
+## The fee
+
+Marginal, like a tax bracket: **5% on the first $20 of a task, 10% above it.**
+
+| Task | Fee | Effective rate | Tasker receives |
+|------|-----|----------------|-----------------|
+| $12  | $0.60 | 5.0% | $11.40 |
+| $20  | $1.00 | 5.0% | $19.00 |
+| $40  | $3.00 | 7.5% | $37.00 |
+| $100 | $9.00 | 9.0% | $91.00 |
+
+Cheap errands are the flywheel — the $12 laundry runs are what build liquidity,
+and a full-rate fee bites hardest exactly there.
+
+The rate is marginal rather than a flat "5% under $20, 10% at or above" because
+a threshold creates a cliff: a $20 task would pay the tasker $18.00 while a
+$19.99 task paid $18.99, so the rounder, more generous price quietly pays the
+worker less — and $20 is the most common price point on the platform. Both
+constants live in `lib/pricing.ts`.
 
 ## What's deliberately not built
 

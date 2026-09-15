@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Avatar, Banner, Stars, TrustMeter, VerifiedBadge } from "./ui";
 import { money, timeAgo } from "@/lib/format";
-import { feeBreakdown } from "@/lib/pricing";
+import { feeBreakdown, feePercentLabel } from "@/lib/pricing";
 import { REPORT_REASONS } from "@/lib/safety";
 import { TRANSPORT_BY_ID } from "@/lib/taxonomy";
 import type { PublicUser } from "@/lib/types";
@@ -104,7 +104,7 @@ export function ApplyForm({
           </div>
           {cents >= 100 && (
             <p className="faint mt-1.5 text-[12px]">
-              You'd receive {money(payout)} after the 10% Sidekick fee.
+              You'd receive {money(payout)} after the {feePercentLabel(cents)} Sidekick fee.
             </p>
           )}
         </div>

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { CATEGORIES, categoryOf, TRANSPORT, type CategoryId, type TransportId } from "@/lib/taxonomy";
 import { PLACES, haversineMiles, PLACE_BY_ID } from "@/lib/geo";
 import { DEADLINE_PRESETS, inferFromTitle } from "@/lib/infer";
-import { suggestPrice, feeBreakdown, PLATFORM_FEE_RATE } from "@/lib/pricing";
+import { suggestPrice, feeBreakdown, feePercentLabel, SMALL_TASK_CEILING_CENTS } from "@/lib/pricing";
 import { ACADEMIC_NOTICE } from "@/lib/safety";
 import { money } from "@/lib/format";
 import { Banner } from "./ui";
@@ -360,7 +360,10 @@ export function Composer({ home }: { home: { lat: number; lng: number } }) {
               {priceType !== "open" && cents > 0 && (
                 <div className="muted mt-2.5 border-t pt-2.5 text-[12px] hairline">
                   They receive <span className="font-semibold text-[var(--ink)]">{money(fee.payout)}</span> ·
-                  Sidekick fee {money(fee.fee)} ({Math.round(PLATFORM_FEE_RATE * 100)}%)
+                  Sidekick fee {money(fee.fee)} ({feePercentLabel(fee.total)})
+                  {fee.total < SMALL_TASK_CEILING_CENTS && (
+                    <span className="block">Small tasks are charged half the standard rate.</span>
+                  )}
                 </div>
               )}
               {priceType !== "open" && (

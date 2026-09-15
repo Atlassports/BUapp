@@ -35,15 +35,40 @@ export function suggestPrice(input: {
     rationale.push("+20% for a same-hour deadline");
   }
 
-  const low = Math.max(5, Math.round((base * 0.85) / 1) );
+  const low = Math.max(5, Math.round(base * 0.85));
   const high = Math.max(low + 3, Math.round(base * 1.15));
   return { low, high, rationale };
 }
 
-/** Platform economics. Posters see the fee before they commit to anything. */
-export const PLATFORM_FEE_RATE = 0.1;
+/* ------------------------------------------------------------------ */
+/* Platform economics                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Small tasks carry a reduced rate. A $12 laundry run is exactly the kind of
+ * high-frequency post that builds liquidity, and it's also where a full-rate
+ * fee bites hardest relative to what the work is worth. Cheap errands are the
+ * flywheel, so they're priced to keep spinning.
+ *
+ * The rate is MARGINAL, like a tax bracket: 5% applies to the first $20 of any
+ * task and 10% only to the part above it. A flat "5% under $20, 10% at or
+ * above" would mean a $20 task pays the tasker $18.00 while a $19.99 task pays
+ * $18.99 — the rounder, more generous price quietly pays the worker less, and
+ * $20 is the most common price point on the platform. Marginal rates make the
+ * payout rise smoothly with the price, always.
+ */
+export const STANDARD_FEE_RATE = 0.1;
+export const SMALL_TASK_FEE_RATE = 0.05;
+export const SMALL_TASK_CEILING_CENTS = 2000;
 
 export function feeBreakdown(cents: number) {
-  const fee = Math.round(cents * PLATFORM_FEE_RATE);
-  return { total: cents, fee, payout: cents - fee };
+  const discounted = Math.min(cents, SMALL_TASK_CEILING_CENTS);
+  const remainder = Math.max(0, cents - SMALL_TASK_CEILING_CENTS);
+  const fee = Math.round(discounted * SMALL_TASK_FEE_RATE + remainder * STANDARD_FEE_RATE);
+  return { total: cents, fee, payout: cents - fee, rate: cents > 0 ? fee / cents : 0 };
+}
+
+/** The blended rate as UI copy, e.g. "5%" or "8%", never a hardcoded number. */
+export function feePercentLabel(cents: number): string {
+  return `${Math.round(feeBreakdown(cents).rate * 100)}%`;
 }

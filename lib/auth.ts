@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { all, get, id, run } from "./db";
 import type { PublicUser, User } from "./types";
 import type { TransportId } from "./taxonomy";
@@ -12,6 +12,25 @@ const CODE_TTL_MS = 1000 * 60 * 10;
 const MAX_CODE_ATTEMPTS = 5;
 
 export const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "bu.edu";
+
+const DEV_SECRET = "dev-secret-change-me";
+
+/**
+ * The secret signs verification codes and the pending-signup cookie. Running
+ * production on the checked-in default would let anyone forge that cookie and
+ * register any @bu.edu address without ever receiving a code, so it's a hard
+ * failure rather than a warning.
+ */
+function secret(): string {
+  const value = process.env.SIDEKICK_SECRET;
+  if (value && value !== DEV_SECRET) return value;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SIDEKICK_SECRET is unset or still the development default. Generate one with `openssl rand -hex 32` before running in production.",
+    );
+  }
+  return DEV_SECRET;
+}
 
 /**
  * Verification is the whole trust story, so the check is strict: a real
@@ -26,8 +45,7 @@ export function normalizeEmail(raw: string): string | null {
 }
 
 function hashCode(email: string, code: string): string {
-  const secret = process.env.SIDEKICK_SECRET ?? "dev-secret-change-me";
-  return createHash("sha256").update(`${secret}:${email}:${code}`).digest("hex");
+  return createHash("sha256").update(`${secret()}:${email}:${code}`).digest("hex");
 }
 
 export function issueCode(email: string): string {
@@ -253,8 +271,7 @@ const PENDING_COOKIE = "sk_pending";
 const PENDING_TTL_MS = 1000 * 60 * 30;
 
 function sign(payload: string): string {
-  const secret = process.env.SIDEKICK_SECRET ?? "dev-secret-change-me";
-  return createHash("sha256").update(`${secret}:${payload}`).digest("hex").slice(0, 32);
+  return createHmac("sha256", secret()).update(payload).digest("hex").slice(0, 32);
 }
 
 /**
@@ -281,7 +298,9 @@ export async function readPendingEmail(): Promise<string | null> {
   const idx = raw.lastIndexOf(".");
   if (idx < 0) return null;
   const payload = raw.slice(0, idx);
-  if (sign(payload) !== raw.slice(idx + 1)) return null;
+  const expected = Buffer.from(sign(payload));
+  const actual = Buffer.from(raw.slice(idx + 1));
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
   const [email, expires] = payload.split(".");
   if (!email || Number(expires) < Date.now()) return null;
   return email;
