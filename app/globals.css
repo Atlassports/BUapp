@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+/* Dark mode follows the OS but can be forced with data-theme on <html>. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* BU Scarlet is the only saturated color in the system. It marks money,
+     primary actions and active state — nothing else — so it stays loud. */
+  --color-scarlet-50: #fff1f1;
+  --color-scarlet-100: #ffdede;
+  --color-scarlet-200: #ffc2c2;
+  --color-scarlet-300: #ff9797;
+  --color-scarlet-400: #ff5c5c;
+  --color-scarlet-500: #f02b2b;
+  --color-scarlet-600: #cc0000;
+  --color-scarlet-700: #ab0505;
+  --color-scarlet-800: #8d0a0a;
+  --color-scarlet-900: #751010;
+
+  --font-sans: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Inter,
+    system-ui, sans-serif;
+
+  --radius-card: 1rem;
+
+  --animate-rise: rise 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-sheet: sheet 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade: fade 0.2s ease-out;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes sheet {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+:root {
+  --ink: #0c0c0d;
+  --ink-2: #55575e;
+  --ink-3: #8b8d95;
+  --bg: #f6f6f7;
+  --surface: #ffffff;
+  --surface-2: #f1f1f3;
+  --line: #e4e4e8;
+  --line-strong: #d3d4d9;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --ink: #f4f4f5;
+  --ink-2: #a2a4ac;
+  --ink-3: #74767e;
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1c1c1f;
+  --line: #26262b;
+  --line-strong: #34343a;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #f4f4f5;
+    --ink-2: #a2a4ac;
+    --ink-3: #74767e;
+    --bg: #0a0a0b;
+    --surface: #141416;
+    --surface-2: #1c1c1f;
+    --line: #26262b;
+    --line-strong: #34343a;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * { -webkit-tap-highlight-color: transparent; }
+
+  html {
+    background: var(--bg);
+    /* Respect the notch on iOS without letting content hide under it. */
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  ::selection { background: var(--color-scarlet-200); color: #000; }
+
+  input, textarea, select, button { font: inherit; color: inherit; }
+  input:focus, textarea:focus, select:focus { outline: none; }
+
+  /* iOS zooms any input under 16px on focus. */
+  @supports (-webkit-touch-callout: none) {
+    input, textarea, select { font-size: max(16px, 1em); }
+  }
+}
+
+@layer components {
+  .surface {
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .card:active { transform: scale(0.994); }
+  @media (hover: hover) {
+    .card:hover { border-color: var(--line-strong); }
+  }
+
+  .muted { color: var(--ink-2); }
+  .faint { color: var(--ink-3); }
+  .hairline { border-color: var(--line); }
+
+  /* Chip: the workhorse. Tags, filters, transport, meta — all one shape. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .chip-active {
+    background: var(--color-scarlet-600);
+    border-color: var(--color-scarlet-600);
+    color: #fff;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.1rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    transition: opacity 0.15s ease, transform 0.1s ease, background 0.15s ease;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-primary { background: var(--color-scarlet-600); color: #fff; }
+  @media (hover: hover) { .btn-primary:hover:not(:disabled) { background: var(--color-scarlet-700); } }
+
+  .btn-ghost {
+    background: var(--surface-2);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+
+  .field {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    transition: border-color 0.15s ease;
+  }
+  .field::placeholder { color: var(--ink-3); }
+  .field:focus { border-color: var(--color-scarlet-500); }
+
+  .price {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  /* Horizontal rails of chips, scrolled without a visible bar. */
+  .rail {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .rail::-webkit-scrollbar { display: none; }
+
+  .divide-hair > * + * { border-top: 1px solid var(--line); }
+}
