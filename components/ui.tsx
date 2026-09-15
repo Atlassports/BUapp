@@ -143,16 +143,23 @@ export function Banner({
   );
 }
 
-export function TrustMeter({ score }: { score: number }) {
+export function TrustMeter({ score, showValue = true }: { score: number; showValue?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
+      <div
+        className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]"
+        role="meter"
+        aria-valuenow={score}
+        aria-valuemin={0}
+        aria-valuemax={99}
+        aria-label="Campus trust score"
+      >
         <div
           className="h-full rounded-full bg-scarlet-600 transition-[width] duration-500"
           style={{ width: `${score}%` }}
         />
       </div>
-      <span className="price text-sm">{score}</span>
+      {showValue && <span className="price text-sm">{score}</span>}
     </div>
   );
 }

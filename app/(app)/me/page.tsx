@@ -73,7 +73,7 @@ export default async function MePage() {
             <p className="faint text-[11px] font-bold uppercase tracking-[0.06em]">Trust</p>
             <p className="price mt-1 text-[24px]">{me.trust_score}</p>
             <div className="mt-1.5">
-              <TrustMeter score={me.trust_score} />
+              <TrustMeter score={me.trust_score} showValue={false} />
             </div>
           </div>
         </div>
