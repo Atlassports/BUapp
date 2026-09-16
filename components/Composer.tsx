@@ -39,7 +39,13 @@ const EXAMPLES = [
   "Walk my dog this week",
 ];
 
-export function Composer({ home }: { home: { lat: number; lng: number } }) {
+export function Composer({
+  home,
+  org,
+}: {
+  home: { lat: number; lng: number };
+  org?: { slug: string; name: string; emoji: string } | null;
+}) {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
@@ -101,6 +107,7 @@ export function Composer({ home }: { home: { lat: number; lng: number } }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          orgSlug: org?.slug ?? null,
           title,
           body,
           category: effCategory,
@@ -134,6 +141,15 @@ export function Composer({ home }: { home: { lat: number; lng: number } }) {
 
   return (
     <form onSubmit={submit} className="space-y-7 px-4 pb-10">
+      {org && (
+        <div className="card flex items-center gap-2.5 p-3">
+          <span className="text-xl">{org.emoji}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-semibold">Posting as {org.name}</span>
+            <span className="faint block text-[12px]">This goes to the Clubs section, not the main feed.</span>
+          </span>
+        </div>
+      )}
       <div>
         <label className="mb-2 block text-[15px] font-semibold">What do you need?</label>
         <input

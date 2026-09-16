@@ -126,6 +126,76 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at  INTEGER NOT NULL
 );
 
+-- Student organizations. Kept deliberately separate from the peer-to-peer
+-- feed: club work has a different rhythm and would drown out the $15 package
+-- pickups that make the marketplace feel alive.
+CREATE TABLE IF NOT EXISTS orgs (
+  id          TEXT PRIMARY KEY,
+  slug        TEXT NOT NULL UNIQUE,
+  name        TEXT NOT NULL,
+  blurb       TEXT NOT NULL DEFAULT '',
+  emoji       TEXT NOT NULL DEFAULT '🎓',
+  avatar_hue  INTEGER NOT NULL DEFAULT 0,
+  category    TEXT NOT NULL DEFAULT 'Student organization',
+  verified_at INTEGER,
+  created_by  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS org_members (
+  org_id     TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role       TEXT NOT NULL DEFAULT 'member',  -- owner | admin | member
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (org_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  title      TEXT NOT NULL,
+  body       TEXT NOT NULL DEFAULT '',
+  link       TEXT NOT NULL DEFAULT '/feed',
+  actor_id   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  read_at    INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, created_at DESC);
+
+-- Web Push subscriptions. On iOS these only exist once the app is installed to
+-- the Home Screen, which is why the install prompt matters.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint   TEXT NOT NULL UNIQUE,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
+
+-- Native device tokens for the App Store build. Web Push covers browsers and
+-- installed PWAs; APNs covers the real iOS app. Same notification layer, two
+-- transports, so a person gets exactly one alert wherever they actually are.
+CREATE TABLE IF NOT EXISTS device_tokens (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token      TEXT NOT NULL UNIQUE,
+  platform   TEXT NOT NULL DEFAULT 'ios',   -- ios | android
+  environment TEXT NOT NULL DEFAULT 'production',
+  created_at INTEGER NOT NULL,
+  last_seen  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_device_user ON device_tokens(user_id);
+
+CREATE TABLE IF NOT EXISTS saved_tasks (
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  task_id    TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, task_id)
+);
+
 CREATE TABLE IF NOT EXISTS blocks (
   blocker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   blocked_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -160,6 +230,7 @@ function open(): DatabaseSync {
 
   database.exec("PRAGMA foreign_keys = ON;");
   database.exec(SCHEMA);
+  migrate(database);
   return database;
 }
 
@@ -204,6 +275,33 @@ export function tx<T>(fn: () => T): T {
   } catch (err) {
     db.exec("ROLLBACK");
     throw err;
+  }
+}
+
+/**
+ * Column additions for databases created before a given feature existed.
+ * SQLite has no "ADD COLUMN IF NOT EXISTS", so each one is attempted and a
+ * duplicate-column error means it is already applied.
+ */
+function migrate(database: DatabaseSync) {
+  const additions: Array<[string, string]> = [
+    ["tasks", "org_id TEXT REFERENCES orgs(id) ON DELETE SET NULL"],
+    ["users", "suspended_at INTEGER"],
+    ["users", "suspended_reason TEXT NOT NULL DEFAULT ''"],
+    ["users", "notify_offers INTEGER NOT NULL DEFAULT 1"],
+    ["users", "notify_messages INTEGER NOT NULL DEFAULT 1"],
+    ["users", "notify_nearby INTEGER NOT NULL DEFAULT 0"],
+    ["reports", "status TEXT NOT NULL DEFAULT 'open'"],
+    ["reports", "resolved_at INTEGER"],
+    ["reports", "resolution TEXT NOT NULL DEFAULT ''"],
+  ];
+  for (const [table, definition] of additions) {
+    try {
+      database.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!/duplicate column/i.test(message)) throw err;
+    }
   }
 }
 

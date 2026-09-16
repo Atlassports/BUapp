@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
+import { NativeBridge } from "@/components/NativeBridge";
 import { PageTransition } from "@/components/PageTransition";
 import { currentUser } from "@/lib/auth";
 import { unreadCount } from "@/lib/queries";
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="mx-auto min-h-dvh w-full max-w-lg pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]">
       <PageTransition>{children}</PageTransition>
       <BottomNav unread={unreadCount(user.id)} />
+      <NativeBridge />
     </div>
   );
 }

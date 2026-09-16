@@ -75,6 +75,38 @@ On the phone, open the site → Share → **Add to Home Screen**. It gets the
 Sidekick icon and opens without browser chrome, which is most of what makes a
 web app feel native. No App Store review, no TestFlight.
 
+## Shipping to the App Store
+
+The web app is the product; the iOS app is a native shell around it, configured
+in `capacitor.config.ts`. Because it loads your deployed URL rather than a
+bundled copy, shipping a fix doesn't need App Store review — only changes to
+native capability do.
+
+On your Mac, once:
+
+```bash
+npm i @capacitor/core @capacitor/ios @capacitor/push-notifications @capacitor/app
+npx cap add ios
+npx cap open ios
+```
+
+Then in Xcode: set the bundle identifier to match `APNS_BUNDLE_ID`, enable the
+Push Notifications capability, and add Background Modes → Remote notifications.
+
+For APNs, create a key at developer.apple.com → Keys with APNs enabled,
+download the `.p8` once (Apple won't let you download it twice), and set
+`APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID` and `APNS_PRIVATE_KEY`. Use
+`APNS_ENVIRONMENT=sandbox` while testing from Xcode and `production` for
+TestFlight and the App Store.
+
+`components/NativeBridge.tsx` registers for APNs and posts the device token to
+`/api/devices/register`. In a browser it does nothing, so the same build serves
+both.
+
+One thing worth knowing before submission: Apple does not require in-app
+purchase for real-world services, which is the category this falls in — the
+same exemption TaskRabbit and Uber rely on. Payments through Stripe are fine.
+
 ## Deploying
 
 The database is a file on disk, so Sidekick needs a host with a **persistent
@@ -129,6 +161,42 @@ would otherwise look identical to a working system from the inside:
 - **No mail provider.** A dropped code is a student who can't sign up.
 
 ## What's built
+
+Every screen below is reachable and working against the database.
+
+**Accounts** — `@bu.edu` verification, profile creation, full profile editing
+(name, bio, class year, home location, transportation, skills), notification
+preferences, appearance, and account deletion that actually deletes.
+
+**Skills** — 274 skills across 14 categories, searchable, with custom entries
+that match exactly like the built-in ones. Capped at 15, because a short honest
+list matches better than a long one.
+
+**Tasks** — post with automatic categorization and price guidance, edit while
+open, cancel (which tells everyone who applied), save for later, and a campus
+map with pins placed from real coordinates.
+
+**Offers** — apply with a note and counter-price, withdraw, and for the poster:
+accept, pass on one applicant without closing the task, confirm completion.
+
+**Messaging** — one thread per offer, quick replies, unread counts.
+
+**Reviews** — two-way after completion, star ratings, and a Campus Trust Score
+kept separate from them.
+
+**Clubs** — any verified student can register a student organization, add
+members, and post on its behalf. Club postings live in their own section and are
+excluded from the peer feed, so event work doesn't bury the $15 errands.
+
+**Notifications** — an in-app activity feed, plus APNs for the App Store build
+and Web Push for browsers and Home Screen installs. Same notification layer,
+three destinations, per-kind opt-outs.
+
+**Moderation** — an admin console at `/admin`, gated by `ADMIN_EMAILS`: review
+reports, suspend accounts (which ends their session immediately and takes their
+open tasks down), remove tasks, and see signups, GMV and fees.
+
+## Earlier notes
 
 The full core loop is real and enforced server-side:
 

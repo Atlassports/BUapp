@@ -4,6 +4,7 @@ import { FeedControls } from "@/components/FeedControls";
 import { TaskCard } from "@/components/TaskCard";
 import { EmptyState } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { unreadNotificationCount } from "@/lib/notify";
 import { DEFAULT_FILTERS, listTasks, type FeedFilters, type FeedSort } from "@/lib/queries";
 import type { TransportId } from "@/lib/taxonomy";
 
@@ -54,6 +55,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const { filters, activeCount } = parseFilters(sp);
   const tasks = listTasks(user, filters);
+  const unreadActivity = unreadNotificationCount(user.id);
 
   const myTransport = (user.transport ? user.transport.split(",") : []) as TransportId[];
 
@@ -71,15 +73,28 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
             <h1 className="text-[19px] font-bold tracking-tight">BU Tasks</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href="/search"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border hairline"
-              aria-label="Search"
-            >
+            <Link href="/search" className="flex h-8 w-8 items-center justify-center rounded-lg border hairline" aria-label="Search">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-3.2-3.2" />
               </svg>
+            </Link>
+            <Link href="/map" className="flex h-8 w-8 items-center justify-center rounded-lg border hairline" aria-label="Map">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 4 6 2.5 5-2v15l-5 2-6-2.5-5 2v-15z" />
+                <path d="M9 4v15M15 6.5v15" />
+              </svg>
+            </Link>
+            <Link href="/activity" className="relative flex h-8 w-8 items-center justify-center rounded-lg border hairline" aria-label="Activity">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 8-3 8h18s-3-1-3-8" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </svg>
+              {unreadActivity > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-scarlet-600 px-1 text-[10px] font-bold text-white">
+                  {unreadActivity > 9 ? "9+" : unreadActivity}
+                </span>
+              )}
             </Link>
           </div>
         </div>

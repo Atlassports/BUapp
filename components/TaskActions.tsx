@@ -208,6 +208,14 @@ export function OfferList({
                   <Link href={`/messages/${o.id}`} className="btn btn-ghost py-2 text-[14px]">
                     Message
                   </Link>
+                  <button
+                    className="btn btn-ghost py-2 text-[14px]"
+                    disabled={busy}
+                    onClick={() => call(`/api/offers/${o.id}/decline`)}
+                    aria-label={`Decline ${o.user.name}`}
+                  >
+                    Pass
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -407,5 +415,132 @@ export function ReportButton({
         </button>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Owner controls                                                      */
+/* ------------------------------------------------------------------ */
+
+/** Cancelling tells everyone who applied, so nobody keeps waiting on it. */
+export function TaskOwnerActions({
+  taskId,
+  status,
+  offerCount,
+}: {
+  taskId: string;
+  status: string;
+  offerCount: number;
+}) {
+  const router = useRouter();
+  const { call, busy, error } = useAction();
+  const [confirming, setConfirming] = useState(false);
+
+  if (status === "completed" || status === "cancelled") return null;
+
+  return (
+    <div className="space-y-2.5">
+      {error && <Banner tone="scarlet">{error}</Banner>}
+      {status === "open" && (
+        <Link href={`/tasks/${taskId}/edit`} className="btn btn-ghost w-full py-2.5 text-[14px]">
+          Edit this task
+        </Link>
+      )}
+      {confirming ? (
+        <>
+          <Banner tone="warn">
+            {offerCount > 0
+              ? `${offerCount} ${offerCount === 1 ? "person has" : "people have"} applied. They'll be told it's cancelled.`
+              : "This takes the task down. You can always post it again."}
+          </Banner>
+          <div className="flex gap-2">
+            <button className="btn btn-ghost flex-1 py-2.5 text-[14px]" onClick={() => setConfirming(false)}>
+              Keep it up
+            </button>
+            <button
+              className="btn btn-primary flex-1 py-2.5 text-[14px]"
+              disabled={busy}
+              onClick={async () => {
+                const ok = await call(`/api/tasks/${taskId}/cancel`);
+                if (ok) router.push("/me");
+              }}
+            >
+              {busy ? "Cancelling…" : "Cancel task"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <button
+          className="faint w-full py-3 text-center text-[13px] underline underline-offset-4"
+          onClick={() => setConfirming(true)}
+        >
+          Cancel this task
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Pulling your own offer back before the poster has decided. */
+export function WithdrawOffer({ offerId }: { offerId: string }) {
+  const { call, busy, error } = useAction();
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <div className="mt-3">
+      {error && <Banner tone="scarlet">{error}</Banner>}
+      {confirming ? (
+        <div className="flex gap-2">
+          <button className="btn btn-ghost flex-1 py-2 text-[13px]" onClick={() => setConfirming(false)}>
+            Keep it
+          </button>
+          <button
+            className="btn btn-primary flex-1 py-2 text-[13px]"
+            disabled={busy}
+            onClick={() => call(`/api/offers/${offerId}/withdraw`)}
+          >
+            {busy ? "Withdrawing…" : "Withdraw offer"}
+          </button>
+        </div>
+      ) : (
+        <button className="faint w-full text-center text-[12px] underline underline-offset-4" onClick={() => setConfirming(true)}>
+          Withdraw my offer
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Saving a task you want but can't take this minute. */
+export function SaveButton({ taskId, initial }: { taskId: string; initial: boolean }) {
+  const [saved, setSaved] = useState(initial);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <button
+      className="flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hairline"
+      style={{ color: saved ? "var(--color-scarlet-600)" : "var(--ink-3)" }}
+      aria-label={saved ? "Remove from saved" : "Save this task"}
+      aria-pressed={saved}
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        // Flip immediately; the request only confirms it.
+        setSaved((v) => !v);
+        try {
+          const res = await fetch(`/api/tasks/${taskId}/save`, { method: "POST" });
+          const data = await res.json();
+          if (typeof data.saved === "boolean") setSaved(data.saved);
+        } catch {
+          setSaved(initial);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+      </svg>
+    </button>
   );
 }

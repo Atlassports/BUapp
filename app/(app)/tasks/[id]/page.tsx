@@ -6,6 +6,9 @@ import {
   OfferList,
   ReportButton,
   ReviewForm,
+  SaveButton,
+  TaskOwnerActions,
+  WithdrawOffer,
 } from "@/components/TaskActions";
 import { Banner, SectionLabel, TrustMeter, UserLine } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -14,6 +17,8 @@ import { categoryOf, TRANSPORT_BY_ID } from "@/lib/taxonomy";
 import { formatDistance, SAFE_MEETING_SPOTS } from "@/lib/geo";
 import { dueLabel, duration, money, priceLabel, timeAgo } from "@/lib/format";
 import { ACADEMIC_NOTICE } from "@/lib/safety";
+import { isSaved } from "@/lib/saved";
+import { orgById } from "@/lib/orgs";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +35,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const cat = categoryOf(task.category);
   const transport = task.transport_req ? TRANSPORT_BY_ID.get(task.transport_req) : null;
   const canReview = pendingReview(task.id, user.id);
+  const saved = isSaved(user.id, task.id);
+  const org = task.org_id ? orgById(task.org_id) : null;
 
   return (
     <>
@@ -44,6 +51,9 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         {task.status !== "open" && (
           <span className="chip capitalize">{task.status}</span>
         )}
+        <span className="ml-auto">
+          {!isPoster && <SaveButton taskId={task.id} initial={saved} />}
+        </span>
       </header>
 
       <main className="px-4 pb-10">
@@ -53,6 +63,11 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             {task.price_type === "open" && <span className="muted text-[16px] font-medium"> — name your price</span>}
           </p>
           <h1 className="mt-2.5 text-[21px] font-bold leading-snug tracking-tight">{task.title}</h1>
+          {org && (
+            <Link href={`/orgs/${org.slug}`} prefetch={false} className="chip mt-2.5">
+              {org.emoji} Posted by {org.name}
+            </Link>
+          )}
 
           <div className="muted mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 text-[13px]">
             <Meta icon={task.is_remote ? "💻" : "📍"} label={task.is_remote ? "Remote" : task.place_label}
@@ -133,6 +148,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               <Link href={`/messages/${mine.id}`} className="btn btn-ghost mt-3 w-full py-2.5 text-[14px]">
                 Open messages
               </Link>
+              {mine.status === "pending" && <WithdrawOffer offerId={mine.id} />}
             </div>
           </>
         )}
@@ -192,6 +208,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                 </div>
               </>
             )}
+          </>
+        )}
+
+        {isPoster && (
+          <>
+            <SectionLabel>Manage</SectionLabel>
+            <TaskOwnerActions taskId={task.id} status={task.status} offerCount={offers.length} />
           </>
         )}
 

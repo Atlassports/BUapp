@@ -123,13 +123,16 @@ export async function currentUser(): Promise<User | null> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const row = get<User>(
+  const row = get<User & { suspended_at: number | null }>(
     `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ? AND s.expires_at > ?`,
     token,
     Date.now(),
   );
-  return row ?? null;
+  if (!row) return null;
+  // A suspension takes effect immediately, including on a session already open.
+  if (row.suspended_at) return null;
+  return row;
 }
 
 /**

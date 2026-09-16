@@ -4,6 +4,7 @@ import { PLACE_BY_ID } from "@/lib/geo";
 import { CATEGORY_BY_ID, TRANSPORT_BY_ID, type CategoryId, type TransportId } from "@/lib/taxonomy";
 import { createTask } from "@/lib/queries";
 import { screenTaskText } from "@/lib/safety";
+import { canPostForOrg, orgBySlug } from "@/lib/orgs";
 
 export async function POST(req: Request) {
   const user = await currentUser();
@@ -54,8 +55,19 @@ export async function POST(req: Request) {
     .filter(Boolean)
     .slice(0, 6);
 
+  let orgId: string | null = null;
+  if (b.orgSlug) {
+    const org = orgBySlug(String(b.orgSlug));
+    if (!org) return NextResponse.json({ error: "Club not found." }, { status: 404 });
+    if (!canPostForOrg(org.id, user.id)) {
+      return NextResponse.json({ error: "Only owners and admins can post for this club." }, { status: 403 });
+    }
+    orgId = org.id;
+  }
+
   const id = createTask({
     poster_id: user.id,
+    org_id: orgId,
     title: title.slice(0, 100),
     body: body.slice(0, 1200),
     category,

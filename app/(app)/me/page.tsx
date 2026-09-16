@@ -2,7 +2,10 @@ import Link from "next/link";
 import { AvailabilityToggle, SignOutButton, ThemeToggle } from "@/components/MeControls";
 import { TaskRow } from "@/components/TaskCard";
 import { Avatar, EmptyState, SectionLabel, Stars, TrustMeter, VerifiedBadge } from "@/components/ui";
-import { requireUser, toPublicUser } from "@/lib/auth";
+import { currentUser, requireUser, toPublicUser } from "@/lib/auth";
+import { isAdmin } from "@/lib/admin";
+import { savedCount } from "@/lib/saved";
+import { orgsForUser } from "@/lib/orgs";
 import { tasksAssignedTo, tasksPostedBy } from "@/lib/queries";
 import { TRANSPORT_BY_ID } from "@/lib/taxonomy";
 import { money } from "@/lib/format";
@@ -19,6 +22,9 @@ export default async function MePage() {
   const finished = assigned.filter((t) => t.status === "completed");
 
   const earned = finished.reduce((sum, t) => sum + feeBreakdown(t.agreed_cents ?? 0).payout, 0);
+  const saved = savedCount(user.id);
+  const clubs = orgsForUser(user.id);
+  const admin = isAdmin(await currentUser());
 
   return (
     <>
@@ -53,6 +59,9 @@ export default async function MePage() {
           <span className="chip">📍 {me.home_area}</span>
           <Link href={`/u/${me.handle}`} className="chip">
             View public profile
+          </Link>
+          <Link href="/me/edit" className="chip">
+            ✏️ Edit profile
           </Link>
         </div>
       </header>
@@ -138,6 +147,21 @@ export default async function MePage() {
           </div>
         )}
 
+        <SectionLabel>More</SectionLabel>
+        <div className="overflow-hidden rounded-2xl border hairline divide-hair" style={{ background: "var(--surface)" }}>
+          <Row href="/saved" emoji="🔖" label="Saved tasks" detail={saved > 0 ? `${saved} saved` : "Nothing saved yet"} />
+          <Row
+            href="/orgs"
+            emoji="🎓"
+            label="Clubs"
+            detail={clubs.length ? clubs.map((c) => c.name).join(", ") : "Browse or register one"}
+          />
+          <Row href="/activity" emoji="🔔" label="Activity" detail="Offers, messages and reviews" />
+          <Row href="/me/edit" emoji="✏️" label="Edit profile" detail="Name, transportation, skills" />
+          <Row href="/settings" emoji="⚙️" label="Settings" detail="Notifications, appearance, account" />
+          {admin && <Row href="/admin" emoji="🛡️" label="Admin" detail="Reports and moderation" />}
+        </div>
+
         <SectionLabel>Appearance</SectionLabel>
         <div className="px-1">
           <ThemeToggle />
@@ -155,5 +179,18 @@ export default async function MePage() {
         <SignOutButton />
       </main>
     </>
+  );
+}
+
+function Row({ href, emoji, label, detail }: { href: string; emoji: string; label: string; detail: string }) {
+  return (
+    <Link href={href} prefetch={false} className="flex items-center gap-3 px-4 py-3.5">
+      <span className="text-lg">{emoji}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-semibold">{label}</span>
+        <span className="faint block truncate text-[12px]">{detail}</span>
+      </span>
+      <span className="faint text-lg">›</span>
+    </Link>
   );
 }

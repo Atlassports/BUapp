@@ -1,5 +1,6 @@
 import "server-only";
 import { all, get, id, run, tx } from "./db";
+import { notify } from "./notify";
 import { publicUserById, toPublicUser } from "./auth";
 import { haversineMiles } from "./geo";
 import { reachOf, transportSatisfies, type TransportId } from "./taxonomy";
@@ -56,7 +57,13 @@ function hydrate(task: Task, viewer: User | null): TaskCard {
 }
 
 export function listTasks(viewer: User | null, filters: FeedFilters): TaskCard[] {
-  const where: string[] = [`t.status = 'open'`];
+  const where: string[] = [
+    `t.status = 'open'`,
+    // Org postings live in their own section so club work doesn't bury the
+    // quick peer-to-peer errands that make the feed feel alive.
+    `t.org_id IS NULL`,
+    `t.poster_id NOT IN (SELECT id FROM users WHERE suspended_at IS NOT NULL)`,
+  ];
   const params: (string | number)[] = [];
 
   if (viewer) {
@@ -235,12 +242,13 @@ export function createTask(input: Omit<Task, "id" | "created_at" | "status" | "a
   const taskId = id("tsk");
   run(
     `INSERT INTO tasks
-      (id, poster_id, title, body, category, tags, price_type, price_min, price_max,
+      (id, poster_id, org_id, title, body, category, tags, price_type, price_min, price_max,
        place_id, place_label, lat, lng, is_remote, transport_req, est_minutes,
        due_at, starts_at, status, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'open', ?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'open', ?)`,
     taskId,
     input.poster_id,
+    input.org_id,
     input.title,
     input.body,
     input.category,
@@ -262,6 +270,61 @@ export function createTask(input: Omit<Task, "id" | "created_at" | "status" | "a
   return taskId;
 }
 
+export type TaskEdit = {
+  title: string;
+  body: string;
+  category: string;
+  tags: string;
+  priceType: "fixed" | "range" | "open";
+  priceMin: number;
+  priceMax: number;
+  estMinutes: number;
+  dueAt: number | null;
+};
+
+/**
+ * Only an open task can be edited. Once someone has been accepted, the terms
+ * are what they agreed to — changing the price out from under them is exactly
+ * the behaviour the reputation system exists to prevent.
+ */
+export function editTask(taskId: string, posterId: string, patch: TaskEdit): { ok: boolean; error?: string } {
+  const task = get<Task>(`SELECT * FROM tasks WHERE id = ?`, taskId);
+  if (!task || task.poster_id !== posterId) return { ok: false, error: "Not your task." };
+  if (task.status !== "open") return { ok: false, error: "This task already has someone on it." };
+
+  run(
+    `UPDATE tasks SET title=?, body=?, category=?, tags=?, price_type=?, price_min=?, price_max=?,
+       est_minutes=?, due_at=? WHERE id = ?`,
+    patch.title.slice(0, 100),
+    patch.body.slice(0, 1200),
+    patch.category,
+    patch.tags,
+    patch.priceType,
+    patch.priceMin,
+    patch.priceMax,
+    patch.estMinutes,
+    patch.dueAt,
+    taskId,
+  );
+
+  // Anyone who already applied deserves to know the terms moved.
+  const applicants = all<{ user_id: string }>(
+    `SELECT user_id FROM offers WHERE task_id = ? AND status = 'pending'`,
+    taskId,
+  );
+  for (const a of applicants) {
+    void notify({
+      userId: a.user_id,
+      kind: "offer_received",
+      title: "A task you applied to changed",
+      body: patch.title,
+      link: `/tasks/${taskId}`,
+      actorId: posterId,
+    });
+  }
+  return { ok: true };
+}
+
 export function tasksPostedBy(userId: string, viewer: User | null): TaskCard[] {
   return all<Task>(`SELECT * FROM tasks WHERE poster_id = ? ORDER BY created_at DESC`, userId).map(
     (t) => hydrate(t, viewer),
@@ -274,8 +337,29 @@ export function tasksAssignedTo(userId: string, viewer: User | null): TaskCard[]
   );
 }
 
-export function cancelTask(taskId: string, userId: string): void {
-  run(`UPDATE tasks SET status = 'cancelled' WHERE id = ? AND poster_id = ? AND status = 'open'`, taskId, userId);
+export function cancelTask(taskId: string, userId: string): { ok: boolean; error?: string } {
+  const task = get<Task>(`SELECT * FROM tasks WHERE id = ?`, taskId);
+  if (!task || task.poster_id !== userId) return { ok: false, error: "Not your task." };
+  if (task.status === "completed") return { ok: false, error: "Completed tasks can't be cancelled." };
+
+  const applicants = all<{ user_id: string }>(
+    `SELECT user_id FROM offers WHERE task_id = ? AND status IN ('pending','accepted')`,
+    taskId,
+  );
+  run(`UPDATE tasks SET status = 'cancelled' WHERE id = ?`, taskId);
+  run(`UPDATE offers SET status = 'declined' WHERE task_id = ? AND status = 'pending'`, taskId);
+
+  for (const a of applicants) {
+    void notify({
+      userId: a.user_id,
+      kind: "task_cancelled",
+      title: "A task you applied to was cancelled",
+      body: task.title,
+      link: "/feed",
+      actorId: userId,
+    });
+  }
+  return { ok: true };
 }
 
 /* ------------------------------------------------------------------ */
@@ -334,18 +418,37 @@ export function createOffer(taskId: string, userId: string, priceCents: number, 
       Date.now(),
     );
   }
+  const task = get<Task>(`SELECT * FROM tasks WHERE id = ?`, taskId);
+  const applicant = get<{ name: string }>(`SELECT name FROM users WHERE id = ?`, userId);
+  if (task) {
+    void notify({
+      userId: task.poster_id,
+      kind: "offer_received",
+      title: `${applicant?.name ?? "Someone"} offered on your task`,
+      body: note.trim() ? note.trim().slice(0, 120) : task.title,
+      link: `/tasks/${taskId}`,
+      actorId: userId,
+    });
+  }
+
   return offerId;
 }
 
 /** Accepting an offer assigns the task and declines the rest, atomically. */
 export function acceptOffer(offerId: string, posterId: string): { ok: boolean; error?: string } {
-  return tx(() => {
+  let losers: Array<{ user_id: string }> = [];
+  const result = tx((): { ok: boolean; error?: string; offer?: Offer; task?: Task } => {
     const offer = get<Offer>(`SELECT * FROM offers WHERE id = ?`, offerId);
     if (!offer) return { ok: false, error: "Offer not found." };
     const task = get<Task>(`SELECT * FROM tasks WHERE id = ?`, offer.task_id);
     if (!task || task.poster_id !== posterId) return { ok: false, error: "Not your task." };
     if (task.status !== "open") return { ok: false, error: "This task is no longer open." };
 
+    losers = all<{ user_id: string }>(
+      `SELECT user_id FROM offers WHERE task_id = ? AND id != ? AND status = 'pending'`,
+      offer.task_id,
+      offerId,
+    );
     run(`UPDATE offers SET status = 'accepted' WHERE id = ?`, offerId);
     run(`UPDATE offers SET status = 'declined' WHERE task_id = ? AND id != ? AND status = 'pending'`, offer.task_id, offerId);
     run(
@@ -355,12 +458,56 @@ export function acceptOffer(offerId: string, posterId: string): { ok: boolean; e
       Date.now(),
       offer.task_id,
     );
-    return { ok: true };
+    return { ok: true, offer, task };
   });
+
+  if (result.ok && result.offer && result.task) {
+    const { offer, task } = result;
+    void notify({
+      userId: offer.user_id,
+      kind: "offer_accepted",
+      title: "Your offer was accepted",
+      body: task.title,
+      link: `/tasks/${task.id}`,
+      actorId: posterId,
+    });
+    for (const other of losers) {
+      void notify({
+        userId: other.user_id,
+        kind: "offer_declined",
+        title: "Your offer wasn't selected",
+        body: task.title,
+        link: "/feed",
+        actorId: posterId,
+      });
+    }
+  }
+
+  return { ok: result.ok, error: result.error };
 }
 
 export function withdrawOffer(offerId: string, userId: string): void {
   run(`UPDATE offers SET status = 'withdrawn' WHERE id = ? AND user_id = ? AND status = 'pending'`, offerId, userId);
+}
+
+/** Declining one applicant without closing the task to everyone else. */
+export function declineOffer(offerId: string, posterId: string): { ok: boolean; error?: string } {
+  const offer = get<Offer>(`SELECT * FROM offers WHERE id = ?`, offerId);
+  if (!offer) return { ok: false, error: "Offer not found." };
+  const task = get<Task>(`SELECT * FROM tasks WHERE id = ?`, offer.task_id);
+  if (!task || task.poster_id !== posterId) return { ok: false, error: "Not your task." };
+  if (offer.status !== "pending") return { ok: false, error: "That offer is no longer pending." };
+
+  run(`UPDATE offers SET status = 'declined' WHERE id = ?`, offerId);
+  void notify({
+    userId: offer.user_id,
+    kind: "offer_declined",
+    title: "Your offer wasn't selected",
+    body: task.title,
+    link: "/feed",
+    actorId: posterId,
+  });
+  return { ok: true };
 }
 
 /** Completion is confirmed by the poster — that's the release trigger for escrow. */
@@ -369,6 +516,16 @@ export function completeTask(taskId: string, posterId: string): { ok: boolean; e
   if (!task || task.poster_id !== posterId) return { ok: false, error: "Not your task." };
   if (task.status !== "assigned") return { ok: false, error: "This task isn't in progress." };
   run(`UPDATE tasks SET status = 'completed', completed_at = ? WHERE id = ?`, Date.now(), taskId);
+  if (task.assignee_id) {
+    void notify({
+      userId: task.assignee_id,
+      kind: "task_completed",
+      title: "Payment released",
+      body: task.title,
+      link: `/tasks/${taskId}`,
+      actorId: posterId,
+    });
+  }
   return { ok: true };
 }
 
@@ -467,6 +624,17 @@ export function sendMessage(offerId: string, senderId: string, body: string): bo
     body.trim().slice(0, 2000),
     Date.now(),
   );
+
+  const recipient = task.poster_id === senderId ? offer.user_id : task.poster_id;
+  const sender = get<{ name: string }>(`SELECT name FROM users WHERE id = ?`, senderId);
+  void notify({
+    userId: recipient,
+    kind: "message",
+    title: sender?.name ?? "New message",
+    body: body.trim().slice(0, 120),
+    link: `/messages/${offerId}`,
+    actorId: senderId,
+  });
   return true;
 }
 
@@ -521,6 +689,15 @@ export function leaveReview(input: {
     isPoster ? "poster" : "tasker",
     Date.now(),
   );
+  const author = get<{ name: string }>(`SELECT name FROM users WHERE id = ?`, input.authorId);
+  void notify({
+    userId: subjectId,
+    kind: "review_received",
+    title: `${author?.name ?? "Someone"} left you a review`,
+    body: `${input.stars}★ on "${task.title}"`,
+    link: `/u/${get<{ handle: string }>(`SELECT handle FROM users WHERE id = ?`, subjectId)?.handle ?? ""}`,
+    actorId: input.authorId,
+  });
   return { ok: true };
 }
 

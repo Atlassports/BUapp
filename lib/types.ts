@@ -21,6 +21,7 @@ export type User = {
 export type Task = {
   id: string;
   poster_id: string;
+  org_id: string | null;
   title: string;
   body: string;
   category: CategoryId;

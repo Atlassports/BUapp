@@ -242,11 +242,107 @@ function insertHistory(users: Map<string, string>) {
   }
 }
 
+function insertOrgs(users: Map<string, string>) {
+  const defs: Array<{ slug: string; name: string; emoji: string; category: string; blurb: string; owner: string; members: string[] }> = [
+    {
+      slug: "bu-finance-association", name: "BU Finance Association", emoji: "💼",
+      category: "Pre-professional",
+      blurb: "Speaker events, a spring showcase and recruiting prep. We usually need photographers and help at the door.",
+      owner: "emma", members: ["marcus", "dev", "hannah"],
+    },
+    {
+      slug: "terrier-film-society", name: "Terrier Film Society", emoji: "🎬",
+      category: "Performing arts",
+      blurb: "Screenings every other Thursday and one student short each semester. Always looking for editors and crew.",
+      owner: "marcus", members: ["chen", "luis"],
+    },
+    {
+      slug: "bu-climbing-club", name: "BU Climbing Club", emoji: "🧗",
+      category: "Sports & club team",
+      blurb: "Weekly gym sessions and two outdoor trips a term. We need drivers more than anything.",
+      owner: "tariq", members: ["alex", "jordan", "nina"],
+    },
+    {
+      slug: "global-cultures-collective", name: "Global Cultures Collective", emoji: "🌍",
+      category: "Cultural club",
+      blurb: "Food nights, language tables and the spring culture fair. Designers and photographers welcome.",
+      owner: "chen", members: ["sofia", "priya"],
+    },
+  ];
+
+  const orgIds = new Map<string, string>();
+  for (const def of defs) {
+    const orgId = id("org");
+    const created = now - 120 * DAY;
+    run(
+      `INSERT INTO orgs (id, slug, name, blurb, emoji, avatar_hue, category, verified_at, created_by, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      orgId, def.slug, def.name, def.blurb, def.emoji,
+      Math.floor(Math.random() * 360), def.category, created, users.get(def.owner)!, created,
+    );
+    run(`INSERT INTO org_members (org_id, user_id, role, created_at) VALUES (?,?,'owner',?)`,
+      orgId, users.get(def.owner)!, created);
+    def.members.forEach((key, i) => {
+      run(`INSERT INTO org_members (org_id, user_id, role, created_at) VALUES (?,?,?,?)`,
+        orgId, users.get(key)!, i === 0 ? "admin" : "member", created + (i + 1) * DAY);
+    });
+    orgIds.set(def.slug, orgId);
+  }
+  return orgIds;
+}
+
+function insertOrgTasks(users: Map<string, string>, orgs: Map<string, string>) {
+  const defs: Array<[string, string, string, string, CategoryId, number, number, number]> = [
+    ["bu-finance-association", "emma", "Photograph our spring showcase", "Two hours at the GSU, about 40 usable shots. You keep credit.", "campus", 12000, 120, 96],
+    ["bu-finance-association", "emma", "Design a flyer for our speaker night", "Clean and simple. We'll send the text and our colors.", "creative", 4500, 75, 72],
+    ["terrier-film-society", "marcus", "Edit our 60-second recruitment video", "Footage is shot. Needs a cut, titles and music.", "creative", 9000, 180, 120],
+    ["terrier-film-society", "marcus", "Help run the door at Thursday's screening", "Check names off a list and hand out tickets. Very easy.", "campus", 3000, 120, 48],
+    ["bu-climbing-club", "tariq", "Drive six of us to a climbing gym in Everett", "Need a van or a big SUV. Saturday morning, back by 3.", "transportation", 8000, 300, 100],
+    ["global-cultures-collective", "chen", "Photographer for the culture fair", "Three hours, lots of food and performances. Great portfolio material.", "campus", 11000, 180, 140],
+    ["global-cultures-collective", "chen", "Set up and tear down for food night", "Tables, chairs and signage. Two people ideal.", "campus", 5000, 120, 60],
+  ];
+
+  for (const [slug, poster, title, body, cat, price, minutes, dueHours] of defs) {
+    const place = PLACE_BY_ID.get("gsu")!;
+    run(
+      `INSERT INTO tasks (id, poster_id, org_id, title, body, category, tags, price_type, price_min, price_max,
+        place_id, place_label, lat, lng, is_remote, transport_req, est_minutes, due_at, starts_at, status, created_at)
+       VALUES (?,?,?,?,?,?,'',?,?,?,?,?,?,?,0,NULL,?,?,NULL,'open',?)`,
+      id("tsk"), users.get(poster)!, orgs.get(slug)!, title, body, cat,
+      "fixed", price, price, place.id, place.name, place.lat, place.lng,
+      minutes, now + dueHours * HOUR, now - Math.floor(Math.random() * 40) * HOUR,
+    );
+  }
+}
+
+function insertNotifications(users: Map<string, string>) {
+  const alex = users.get("alex")!;
+  const seeds: Array<[string, string, string, string, number, boolean]> = [
+    ["offer_received", "Priya N. offered on your task", "I walk past that CVS every day", "/me", 40, false],
+    ["review_received", "Marcus T. left you a review", "5★ on \"Airport run to Logan\"", "/u/alexr", 180, false],
+    ["offer_accepted", "Your offer was accepted", "Move a dresser to West Campus", "/me", 1400, true],
+  ];
+  for (const [kind, title, body, link, minsAgo, read] of seeds) {
+    run(
+      `INSERT INTO notifications (id, user_id, kind, title, body, link, actor_id, read_at, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      id("ntf"), alex, kind, title, body, link, users.get("priya")!,
+      read ? now - minsAgo * MIN + HOUR : null, now - minsAgo * MIN,
+    );
+  }
+}
+
 wipe();
 const users = insertUsers();
 const taskIds = insertTasks(users);
 insertActivity(users, taskIds);
 insertHistory(users);
+const orgs = insertOrgs(users);
+insertOrgTasks(users, orgs);
+insertNotifications(users);
 
-console.log(`Seeded ${USERS.length} students, ${TASKS.length} open tasks, plus offers, threads and completed history.`);
+console.log(
+  `Seeded ${USERS.length} students, ${TASKS.length} open tasks, ${orgs.size} clubs with their own postings, ` +
+    `plus offers, threads, notifications and completed history.`,
+);
 console.log(`Sign in as any of: ${USERS.slice(0, 3).map((u) => `${u.handle}@bu.edu`).join(", ")} — the code prints to this console.`);
