@@ -9,6 +9,7 @@ import { suggestPrice, feeBreakdown, feePercentLabel, SMALL_TASK_CEILING_CENTS }
 import { ACADEMIC_NOTICE } from "@/lib/safety";
 import { money } from "@/lib/format";
 import { Banner } from "./ui";
+import { PhotoPicker, type UploadedPhoto } from "./PhotoPicker";
 
 /** Maps an inferred urgency in hours back to the closest deadline preset. */
 function presetForHours(hours: number | null): string | null {
@@ -65,6 +66,8 @@ export function Composer({
   const [amountMax, setAmountMax] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
 
   // Inferred values act as defaults until the poster overrides them.
   const effCategory = touched.category && category ? category : guess.category;
@@ -126,7 +129,9 @@ export function Composer({
         setError(data.error ?? "Couldn't post that.");
         return;
       }
-      router.push(`/tasks/${data.id}`);
+      // The task has to exist before photos can hang off it, so the draft is
+      // created first and the poster adds photos to the real task.
+      setTaskId(data.id);
     } catch {
       setError("Network trouble. Try again.");
     } finally {
@@ -399,9 +404,30 @@ export function Composer({
 
           {error && <Banner tone="scarlet">{error}</Banner>}
 
-          <button className="btn btn-primary w-full" disabled={busy || title.trim().length < 6 || !priceValid}>
-            {busy ? "Posting…" : "Post task"}
-          </button>
+          {taskId ? (
+            <div className="animate-rise space-y-3">
+              <Banner tone="scarlet">Posted. Add photos so people know what they're walking into.</Banner>
+              <PhotoPicker
+                kind="task"
+                taskId={taskId}
+                photos={photos}
+                onChange={setPhotos}
+                label="Add photo"
+                hint="A photo of the couch, the box, the room — anything that answers a question before someone has to ask it."
+              />
+              <button
+                type="button"
+                className="btn btn-primary w-full"
+                onClick={() => router.push(`/tasks/${taskId}`)}
+              >
+                {photos.length ? "Done" : "Skip photos"}
+              </button>
+            </div>
+          ) : (
+            <button className="btn btn-primary w-full" disabled={busy || title.trim().length < 6 || !priceValid}>
+              {busy ? "Posting…" : "Post task"}
+            </button>
+          )}
           <p className="faint text-center text-[12px] leading-relaxed">
             Posting is free. Sidekick only takes a fee when a task is completed and paid.
           </p>

@@ -18,6 +18,8 @@ import { formatDistance, SAFE_MEETING_SPOTS } from "@/lib/geo";
 import { dueLabel, duration, money, priceLabel, timeAgo } from "@/lib/format";
 import { ACADEMIC_NOTICE } from "@/lib/safety";
 import { isSaved } from "@/lib/saved";
+import { photosForTask } from "@/lib/photos";
+import { ProofOfCompletion } from "@/components/ProofOfCompletion";
 import { FundTaskButton, DisputeButton } from "@/components/PaymentSheet";
 import { AUTO_RELEASE_HOURS, paymentForTask, paymentsConfigured } from "@/lib/payments";
 import { orgById } from "@/lib/orgs";
@@ -40,6 +42,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const saved = isSaved(user.id, task.id);
   const org = task.org_id ? orgById(task.org_id) : null;
   const payment = paymentForTask(task.id);
+  const taskPhotos = photosForTask(task.id, "task");
+  const proofPhotos = photosForTask(task.id, "proof");
   const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null;
 
   return (
@@ -92,6 +96,21 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
 
         {task.body && (
           <p className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed">{task.body}</p>
+        )}
+
+        {taskPhotos.length > 0 && (
+          <div className="rail mt-4">
+            {taskPhotos.map((photo) => (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                key={photo.id}
+                src={`/api/photos/${photo.id}`}
+                alt=""
+                className="h-36 w-36 shrink-0 rounded-xl border object-cover hairline"
+                loading="lazy"
+              />
+            ))}
+          </div>
         )}
 
         {task.category === "academic" && (
@@ -185,6 +204,24 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                   ? "The money is set aside. It moves when you confirm the work is done — never before, and never in cash."
                   : "The poster has funded this task. Finish the work, then they confirm and your payout is released."}
               </p>
+              {isPoster && proofPhotos.length > 0 && (
+                <div>
+                  <p className="text-[13px] font-semibold">They sent proof</p>
+                  <div className="rail mt-2">
+                    {proofPhotos.map((photo) => (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        key={photo.id}
+                        src={`/api/photos/${photo.id}`}
+                        alt=""
+                        className="h-32 w-32 shrink-0 rounded-xl border object-cover hairline"
+                        loading="lazy"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {isPoster && task.agreed_cents && (
                 <>
                   {!payment || payment.status === "pending" ? (
@@ -206,6 +243,10 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
 
               {isAssignee && (
                 <>
+                  <ProofOfCompletion
+                    taskId={task.id}
+                    existing={proofPhotos.map((p) => ({ id: p.id, url: `/api/photos/${p.id}` }))}
+                  />
                   {payment?.status === "held" ? (
                     <Banner>
                       Funded and held. It reaches you when they confirm — or automatically after{" "}

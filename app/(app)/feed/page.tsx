@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { FeedControls } from "@/components/FeedControls";
+import { NearMeToggle } from "@/components/NearMeToggle";
 import { TaskCard } from "@/components/TaskCard";
 import { EmptyState } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -24,6 +25,10 @@ function parseFilters(sp: SP): { filters: FeedFilters; activeCount: number } {
   const min = Number(one(sp, "min")) || 0;
   const within = one(sp, "within") ? Number(one(sp, "within")) : null;
   const includeRemote = one(sp, "remote") !== "0";
+  const lat = Number(one(sp, "lat"));
+  const lng = Number(one(sp, "lng"));
+  const from =
+    Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 ? { lat, lng } : null;
 
   const filters: FeedFilters = {
     ...DEFAULT_FILTERS,
@@ -37,6 +42,7 @@ function parseFilters(sp: SP): { filters: FeedFilters; activeCount: number } {
     withinHours: within,
     includeRemote,
     query: one(sp, "q"),
+    from,
   };
 
   const activeCount =
@@ -100,7 +106,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
         </div>
 
         <Suspense fallback={<div className="h-[86px]" />}>
-          <FeedControls activeCount={activeCount} myTransport={myTransport} />
+          <FeedControls activeCount={activeCount} myTransport={myTransport} nearMe={<NearMeToggle />} />
         </Suspense>
       </header>
 

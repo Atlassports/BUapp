@@ -22,6 +22,8 @@ export type FeedFilters = {
   withinHours: number | null;
   includeRemote: boolean;
   query: string;
+  /** Live device position, when the viewer has shared it. Never persisted. */
+  from?: { lat: number; lng: number } | null;
 };
 
 export const DEFAULT_FILTERS: FeedFilters = {
@@ -33,17 +35,18 @@ export const DEFAULT_FILTERS: FeedFilters = {
   withinHours: null,
   includeRemote: true,
   query: "",
+  from: null,
 };
 
-function hydrate(task: Task, viewer: User | null): TaskCard {
+function hydrate(task: Task, viewer: User | null, from?: { lat: number; lng: number } | null): TaskCard {
   const poster = publicUserById(task.poster_id)!;
   const offers = get<{ c: number }>(
     `SELECT COUNT(*) AS c FROM offers WHERE task_id = ? AND status IN ('pending','accepted')`,
     task.id,
   );
-  const origin = viewer
-    ? { lat: viewer.home_lat, lng: viewer.home_lng }
-    : { lat: 42.3505, lng: -71.1054 };
+  const origin =
+    from ??
+    (viewer ? { lat: viewer.home_lat, lng: viewer.home_lng } : { lat: 42.3505, lng: -71.1054 });
   const distance =
     task.is_remote || task.lat === null || task.lng === null
       ? null
@@ -106,7 +109,7 @@ export function listTasks(viewer: User | null, filters: FeedFilters): TaskCard[]
     ...params,
   );
 
-  let cards = rows.map((t) => hydrate(t, viewer));
+  let cards = rows.map((t) => hydrate(t, viewer, filters.from));
 
   // Transportation and distance are applied in code because "can this person
   // actually get there" is a judgment about the viewer, not a column.

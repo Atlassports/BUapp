@@ -235,17 +235,55 @@ npx cap add ios
 npx cap open ios
 ```
 
+```bash
+npm i @capacitor/core @capacitor/ios @capacitor/push-notifications \
+      @capacitor/app @capacitor/camera @capacitor/geolocation @capacitor/haptics
+npx cap sync ios
+```
+
 3. In Xcode:
    - Set the bundle identifier to match `APNS_BUNDLE_ID`
    - Signing & Capabilities → **+ Capability** → Push Notifications
    - **+ Capability** → Background Modes → check **Remote notifications**
+   - Info → add these four usage strings, or iOS terminates the app the instant
+     it asks for the permission:
+
+| Key | What to write |
+|---|---|
+| `NSCameraUsageDescription` | Take photos of what needs doing, and show work is finished. |
+| `NSPhotoLibraryUsageDescription` | Attach a photo you already have to a task. |
+| `NSPhotoLibraryAddUsageDescription` | Save a photo from a task to your library. |
+| `NSLocationWhenInUseUsageDescription` | Show tasks near where you are right now, instead of where you signed up. |
+
+Apple reads these during review. Describe what the app genuinely does with the
+permission — a vague string is a rejection by itself.
+
 4. In App Store Connect: create the app record, upload a build, submit
+
+### The rejection to plan for
+
+**Guideline 4.2, Minimum Functionality.** Apple rejects apps that are a website
+in a wrapper with nothing native, and a Capacitor app pointed at a remote URL is
+the pattern reviewers look hardest at. This is the likeliest reason a first
+submission bounces.
+
+What the app uses natively, and what to say in the review notes:
+
+- **Camera** — photographing a task when posting, and proof of completion before
+  a payment releases
+- **Location** — ranking nearby work from the device's actual position
+- **Push notifications** — offers, messages and payment events through APNs
+- **Haptics** — feedback on accept and payout
+
+Say plainly that the app is a two-sided marketplace with escrowed payments, not
+a content site, and that these capabilities are load-bearing rather than
+decorative.
 
 ### What review will ask about
 
-- **A demo account.** They will not sign up with a `bu.edu` address. Create one
-  and put the credentials in App Review notes, or they will reject for being
-  unable to see the app.
+- **A demo account.** They will not sign up with a `bu.edu` address. Create one,
+  seed it with a few tasks so the app isn't empty, and put the credentials in
+  App Review notes — otherwise they reject for being unable to see the app.
 - **Why it is restricted to BU.** Explain the verification model plainly.
 - **Payments.** Real-world services are exempt from in-app purchase — the same
   exemption TaskRabbit and Uber rely on. Say so in the review notes.
@@ -305,6 +343,7 @@ Not optional once students are meeting strangers and money is moving.
 | Mapbox | free | Nothing — there's a fallback |
 | Stripe | 2.9% + 30¢ | Real payments |
 | Apple Developer | $99/yr | The App Store |
+| Photo storage | included | Nothing — files sit on the Fly volume |
 | LLC | ~$100–500 | Nothing technically; everything legally |
 
 **Under $150 gets you a real app students can use.** The $99 Apple fee only buys

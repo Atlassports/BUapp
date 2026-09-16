@@ -19,7 +19,15 @@ const TIME_WINDOWS = [
   { id: "72", label: "Next 3 days" },
 ];
 
-export function FeedControls({ activeCount, myTransport }: { activeCount: number; myTransport: TransportId[] }) {
+export function FeedControls({
+  activeCount,
+  myTransport,
+  nearMe,
+}: {
+  activeCount: number;
+  myTransport: TransportId[];
+  nearMe?: React.ReactNode;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -88,6 +96,7 @@ export function FeedControls({ activeCount, myTransport }: { activeCount: number
             </span>
           )}
         </button>
+        {nearMe}
         <span className="w-px shrink-0 self-stretch" style={{ background: "var(--line)" }} aria-hidden />
         <button
           onClick={() => apply({ cat: null })}

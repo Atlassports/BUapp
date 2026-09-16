@@ -10,7 +10,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *
  * Setup on your Mac, once:
  *   npm i -D @capacitor/cli
- *   npm i @capacitor/core @capacitor/ios @capacitor/push-notifications @capacitor/app
+ *   npm i @capacitor/core @capacitor/ios @capacitor/push-notifications \
+ *        @capacitor/app @capacitor/camera @capacitor/geolocation @capacitor/haptics
  *   npx cap add ios
  *   npx cap open ios
  */
@@ -32,6 +33,26 @@ const config: CapacitorConfig = {
       presentationOptions: ["badge", "sound", "alert"],
     },
   },
+
+  /*
+   * Info.plist needs a usage string for each of these or iOS kills the app the
+   * moment it asks. Xcode → target → Info, or edit ios/App/App/Info.plist:
+   *
+   *   NSCameraUsageDescription
+   *     Take photos of what needs doing, and show work is finished.
+   *
+   *   NSPhotoLibraryUsageDescription
+   *     Attach a photo you already have to a task.
+   *
+   *   NSPhotoLibraryAddUsageDescription
+   *     Save a photo from a task to your library.
+   *
+   *   NSLocationWhenInUseUsageDescription
+   *     Show tasks near where you are right now, instead of where you signed up.
+   *
+   * Apple reads these during review. Write what the app actually does with the
+   * permission — a vague string is a rejection on its own.
+   */
 };
 
 export default config;

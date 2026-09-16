@@ -181,6 +181,21 @@ CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
 -- Payments ledger. Every money movement is a row, so the state of a task's
 -- funds is never inferred from Stripe alone — a webhook that never arrives
 -- leaves an obvious gap rather than a silently wrong balance.
+-- Photos. Files live on the mounted volume; only metadata is in the database,
+-- so the table stays small and a backup is not gigabytes of JPEGs.
+CREATE TABLE IF NOT EXISTS photos (
+  id          TEXT PRIMARY KEY,
+  owner_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  task_id     TEXT REFERENCES tasks(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL DEFAULT 'task',   -- task | proof | avatar
+  filename    TEXT NOT NULL,
+  mime        TEXT NOT NULL,
+  bytes       INTEGER NOT NULL,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_photos_task ON photos(task_id, kind);
+CREATE INDEX IF NOT EXISTS idx_photos_owner ON photos(owner_id);
+
 CREATE TABLE IF NOT EXISTS payments (
   id                TEXT PRIMARY KEY,
   task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -330,6 +345,7 @@ function migrate(database: DatabaseSync) {
     ["users", "stripe_account_id TEXT"],
     ["users", "payouts_enabled INTEGER NOT NULL DEFAULT 0"],
     ["users", "stripe_customer_id TEXT"],
+    ["users", "avatar_photo_id TEXT"],
     ["reports", "status TEXT NOT NULL DEFAULT 'open'"],
     ["reports", "resolved_at INTEGER"],
     ["reports", "resolution TEXT NOT NULL DEFAULT ''"],

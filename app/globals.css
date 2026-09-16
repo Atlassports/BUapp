@@ -1,7 +1,30 @@
 @import "tailwindcss";
 
-/* Dark mode follows the OS but can be forced with data-theme on <html>. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/*
+ * Dark mode follows the OS but can be forced with data-theme on <html>.
+ *
+ * Both rules are needed. The attribute alone misses everyone on system dark
+ * who never opened the theme picker — which is most people — and those users
+ * got the CSS-variable palette (which does honor prefers-color-scheme) while
+ * every `dark:` utility silently stayed light. Prices rendered #cc0000 on
+ * near-black at roughly 3:1, below the readable threshold.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    /*
+     * Anchored at :root. Without that anchor, `:not([data-theme="light"]) *`
+     * matches anything with any non-light ancestor — which is every element,
+     * since <body> carries no theme attribute. Forcing light on a dark OS then
+     * produced a white background with dark-mode text.
+     */
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
 
 @theme {
   /* BU Scarlet is the only saturated color in the system. It marks money,
@@ -48,7 +71,7 @@
 :root {
   --ink: #0c0c0d;
   --ink-2: #55575e;
-  --ink-3: #8b8d95;
+  --ink-3: #6b6d75;
   --bg: #f6f6f7;
   --surface: #ffffff;
   --surface-2: #f1f1f3;
@@ -60,7 +83,7 @@
 [data-theme="dark"] {
   --ink: #f4f4f5;
   --ink-2: #a2a4ac;
-  --ink-3: #74767e;
+  --ink-3: #82848c;
   --bg: #0a0a0b;
   --surface: #141416;
   --surface-2: #1c1c1f;
@@ -73,7 +96,7 @@
   :root:not([data-theme="light"]) {
     --ink: #f4f4f5;
     --ink-2: #a2a4ac;
-    --ink-3: #74767e;
+    --ink-3: #82848c;
     --bg: #0a0a0b;
     --surface: #141416;
     --surface-2: #1c1c1f;
