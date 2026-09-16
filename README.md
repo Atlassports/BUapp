@@ -154,6 +154,30 @@ tasks, saved searches, and multi-campus support. These are V2 — they matter on
 after BU has genuine liquidity, and building them now would be building for a
 network that doesn't exist yet.
 
+## Recovering a locked-out account
+
+If an account was created before the pending-cookie fix, its address was stored
+truncated at the first dot (`mikec@bu`, or bare `first` for `first.last@bu.edu`),
+so signing in with the real address found nothing and the sign-up form answered
+"that account already exists". Repair it:
+
+```bash
+npm run db:repair
+```
+
+That rebuilds any address it can and names the ones it can't, which you set by
+hand: `npm run db:repair -- <handle> <correct@bu.edu>`.
+
+## Tests
+
+```bash
+npm test
+```
+
+Covers the pending-token round trip (dotted addresses included), the BU email
+gate, and the trust score. The token tests exist because that codec is what
+locked a real account out.
+
 ## Architecture
 
 ```
@@ -171,6 +195,7 @@ lib/
   infer.ts      post-time categorization heuristics
   pricing.ts    campus price suggestions and fee math
   safety.ts     prohibited-content policy
+  credentials.ts  pure credential logic — no cookies, no db, so it's testable
 ```
 
 **Storage** is SQLite through Node's built-in `node:sqlite` driver — no native

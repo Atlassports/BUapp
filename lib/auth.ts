@@ -5,6 +5,13 @@ import { createHash, createHmac, randomInt, timingSafeEqual } from "node:crypto"
 import { all, get, id, run } from "./db";
 import type { PublicUser, User } from "./types";
 import type { TransportId } from "./taxonomy";
+import {
+  DEV_SECRET,
+  decodePending,
+  encodePending,
+  normalizeEmailFor,
+  trustScore as computeTrustScore,
+} from "./credentials";
 
 const SESSION_COOKIE = "sk_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -12,8 +19,6 @@ const CODE_TTL_MS = 1000 * 60 * 10;
 const MAX_CODE_ATTEMPTS = 5;
 
 export const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "bu.edu";
-
-const DEV_SECRET = "dev-secret-change-me";
 
 /**
  * The secret signs verification codes and the pending-signup cookie. Running
@@ -32,16 +37,8 @@ function secret(): string {
   return DEV_SECRET;
 }
 
-/**
- * Verification is the whole trust story, so the check is strict: a real
- * @bu.edu address, not "pick your school from a dropdown".
- */
 export function normalizeEmail(raw: string): string | null {
-  const email = raw.trim().toLowerCase();
-  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) return null;
-  const domain = email.split("@")[1];
-  if (domain !== ALLOWED_DOMAIN && !domain.endsWith(`.${ALLOWED_DOMAIN}`)) return null;
-  return email;
+  return normalizeEmailFor(raw, ALLOWED_DOMAIN);
 }
 
 function hashCode(email: string, code: string): string {
@@ -202,24 +199,7 @@ export function createUser(input: {
 /* Reputation                                                          */
 /* ------------------------------------------------------------------ */
 
-/**
- * Campus Trust Score. Deliberately separate from the public star rating:
- * stars are how good you are, trust is how safe you are to transact with.
- */
-export function trustScore(u: {
-  verified: boolean;
-  rating: number | null;
-  review_count: number;
-  completed_count: number;
-  created_at: number;
-}): number {
-  let score = u.verified ? 55 : 20;
-  score += Math.min(20, u.completed_count * 2);
-  if (u.rating !== null) score += Math.round((u.rating - 3) * 7);
-  score += Math.min(8, Math.floor((Date.now() - u.created_at) / (1000 * 60 * 60 * 24 * 30)) * 2);
-  score += Math.min(5, u.review_count);
-  return Math.max(0, Math.min(99, score));
-}
+export const trustScore = computeTrustScore;
 
 export function toPublicUser(u: User): PublicUser {
   const agg = get<{ avg: number | null; count: number }>(
@@ -277,10 +257,18 @@ function sign(payload: string): string {
 /**
  * Bridges "this address proved it owns a bu.edu inbox" and "this person
  * finished a profile", without trusting the email the client posts back.
+ *
+ * The payload is base64url-encoded JSON rather than delimiter-joined text.
+ * Email addresses contain dots, so joining on one and splitting it back apart
+ * truncated the address at its first dot — signing someone up as `mikec@bu`,
+ * or as bare `first` for `first.last@bu.edu`, which then made the real address
+ * unfindable and locked them out of their own account permanently. The same
+ * split also left the expiry as NaN, and `NaN < Date.now()` is false, so the
+ * 30-minute window silently never expired. base64url contains no dots, so the
+ * signature separator stays unambiguous.
  */
 export async function setPendingEmail(email: string) {
-  const expires = Date.now() + PENDING_TTL_MS;
-  const payload = `${email}.${expires}`;
+  const payload = encodePending({ email, exp: Date.now() + PENDING_TTL_MS });
   const jar = await cookies();
   jar.set(PENDING_COOKIE, `${payload}.${sign(payload)}`, {
     httpOnly: true,
@@ -295,15 +283,22 @@ export async function readPendingEmail(): Promise<string | null> {
   const jar = await cookies();
   const raw = jar.get(PENDING_COOKIE)?.value;
   if (!raw) return null;
+
   const idx = raw.lastIndexOf(".");
   if (idx < 0) return null;
+
   const payload = raw.slice(0, idx);
   const expected = Buffer.from(sign(payload));
   const actual = Buffer.from(raw.slice(idx + 1));
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
-  const [email, expires] = payload.split(".");
-  if (!email || Number(expires) < Date.now()) return null;
-  return email;
+
+  const pending = decodePending(payload);
+  if (!pending) return null;
+  if (pending.exp < Date.now()) return null;
+
+  // The address is re-validated on the way out, so a token minted before the
+  // allowed domain changed can't be used to slip past the current rule.
+  return normalizeEmail(pending.email);
 }
 
 export async function clearPendingEmail() {

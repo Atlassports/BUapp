@@ -8,8 +8,15 @@ export async function POST(req: Request) {
   if (!email) {
     return NextResponse.json({ error: "Verify your BU email again." }, { status: 401 });
   }
-  if (findUserByEmail(email)) {
-    return NextResponse.json({ error: "That account already exists." }, { status: 409 });
+  // The pending cookie only exists because this address passed a code check,
+  // so an existing account for it belongs to the person holding it. Signing
+  // them in beats refusing: the old 409 stranded people on a form with no way
+  // forward and no way back, which read as "your account is gone".
+  const existing = findUserByEmail(email);
+  if (existing) {
+    await clearPendingEmail();
+    await startSession(existing.id);
+    return NextResponse.json({ status: "signed_in", handle: existing.handle });
   }
 
   const body = await req.json().catch(() => ({}));

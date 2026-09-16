@@ -248,6 +248,17 @@ export function WelcomeFlow({ domain }: { domain: string }) {
           <button className="btn btn-primary w-full" disabled={busy || name.trim().length < 2 || !transport.length}>
             {busy ? "Creating…" : "Create my account"}
           </button>
+          <button
+            type="button"
+            className="muted w-full pb-2 text-center text-[13px] underline underline-offset-4"
+            onClick={() => {
+              setStep("email");
+              setCode("");
+              setError(null);
+            }}
+          >
+            Start over with a different email
+          </button>
         </form>
       )}
     </div>

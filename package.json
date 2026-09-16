@@ -9,7 +9,9 @@
     "db:reset": "rm -f .data/sidekick.db && npm run db:seed",
     "db:seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "mail:test": "tsx --env-file-if-exists=.env scripts/check-mail.ts",
-    "share": "node scripts/share.mjs"
+    "share": "node scripts/share.mjs",
+    "db:repair": "tsx --env-file-if-exists=.env scripts/repair-emails.ts",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
