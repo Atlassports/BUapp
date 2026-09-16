@@ -99,7 +99,7 @@ not secrecy, is what protects it.
 
 ---
 
-## 5. Payments — start this first, it has the longest wait
+## 5. Payments — the longest setup, but not a launch blocker
 
 ### What you must accept before starting
 
@@ -219,14 +219,18 @@ Newlines in the key are written as `\n`.
 
 ---
 
-## 7. The iOS app — $99/year, needs a Mac
+## 7. The App Store — $99/year, needs a Mac
 
 The web app is the product; the iOS app is a native shell around it. Because it
 loads your deployed URL rather than a bundled copy, **shipping a fix does not
 need App Store review** — only changes to native capability do.
 
-1. Join the [Apple Developer Program](https://developer.apple.com/programs/) —
-   $99/year, approval takes 24–48 hours
+**Step 3 has to be done first.** `capacitor.config.ts` points `server.url` at
+your deployment and Apple requires HTTPS, so there is nothing to submit until
+the app is actually hosted somewhere.
+
+1. Pay the [Apple Developer Program](https://developer.apple.com/programs/) fee
+   — $99/year. Membership usually activates within a day.
 2. On your Mac:
 
 ```bash
@@ -258,7 +262,30 @@ npx cap sync ios
 Apple reads these during review. Describe what the app genuinely does with the
 permission — a vague string is a rejection by itself.
 
-4. In App Store Connect: create the app record, upload a build, submit
+4. Archive and upload: Xcode → Product → Destination → **Any iOS Device**, then
+   Product → **Archive** → Distribute App → App Store Connect.
+
+### The App Store Connect checklist
+
+Everything below is required before the Submit button is enabled. Gathering it
+takes longer than the build does.
+
+| Item | Notes |
+|---|---|
+| **App name** | 30 characters. Must be unique across the whole store. |
+| **Subtitle** | 30 characters. "Campus tasks for BU students" or similar. |
+| **Bundle ID** | Must match `APNS_BUNDLE_ID` exactly. |
+| **Category** | Business, with Lifestyle as secondary, fits a task marketplace. |
+| **Price** | Free. |
+| **App icon** | 1024×1024 PNG, **no alpha channel** — a transparent icon is rejected automatically. |
+| **Screenshots** | At least one 6.9" iPhone set. App Store Connect names the exact pixel sizes when you upload, and they change between iOS releases — trust the uploader over any list. |
+| **Privacy policy URL** | Required. Must be live before you submit. See §9. |
+| **App Privacy labels** | Declare honestly: email address, coarse location, photos, payment info (via Stripe), and identifiers. Under-declaring is a rejection and, once live, a removal. |
+| **Age rating** | Answer the questionnaire. A user-generated-content marketplace generally lands at 17+ unless you can show moderation — which you can, so answer that you moderate and have reporting and blocking. |
+| **Export compliance** | The app uses standard HTTPS only, so it qualifies for the exemption. Answer yes to encryption, then yes to the exemption question. |
+| **Demo account** | See below. Non-negotiable. |
+
+### What review will ask about
 
 ### The rejection to plan for
 
@@ -281,9 +308,14 @@ decorative.
 
 ### What review will ask about
 
-- **A demo account.** They will not sign up with a `bu.edu` address. Create one,
-  seed it with a few tasks so the app isn't empty, and put the credentials in
-  App Review notes — otherwise they reject for being unable to see the app.
+- **A demo account.** This is the single most common reason an app like this is
+  rejected. A reviewer in California cannot get a `bu.edu` address, so without
+  credentials they see a login wall and reject under Guideline 2.1. Create a
+  real account, seed it with tasks, offers and a message thread so the app is
+  not empty, and put the email **and a working verification code path** in App
+  Review notes. The cleanest approach: add the reviewer's address to
+  `ALLOWED_EMAIL_DOMAIN` temporarily, or issue them a long-lived account and
+  hand over the password-free sign-in details in the notes.
 - **Why it is restricted to BU.** Explain the verification model plainly.
 - **Payments.** Real-world services are exempt from in-app purchase — the same
   exemption TaskRabbit and Uber rely on. Say so in the review notes.
@@ -333,7 +365,7 @@ Not optional once students are meeting strangers and money is moving.
 
 ---
 
-## The cheapest honest path
+## What it costs
 
 | | Cost | Blocks what |
 |---|---|---|
@@ -346,16 +378,27 @@ Not optional once students are meeting strangers and money is moving.
 | Photo storage | included | Nothing — files sit on the Fly volume |
 | LLC | ~$100–500 | Nothing technically; everything legally |
 
-**Under $150 gets you a real app students can use.** The $99 Apple fee only buys
-the App Store, and the web app already installs to the Home Screen for free.
+**About $120 in year one**, plus 2.9% + 30¢ on each transaction once payments
+are live. The recurring cost is roughly $5/month for hosting and $99/year for
+Apple — everything else is either free or usage-based.
 
-## What I would do in what order
+## The order to work in
 
-1. **Domain + Resend + Fly** — get it live, hand it to ten students. Free tier,
-   one afternoon.
-2. **Watch what breaks.** Ten real users will teach you more than any feature.
-3. **Only then, Stripe.** Payments are the most work and the most risk, and they
-   are pointless without liquidity. Until then the app is honest about charging
-   nothing.
-4. **App Store last.** The PWA install is free, instant, and enough to learn
-   from. The $99 and the review queue buy distribution you do not need yet.
+1. **Pay the Apple fee** — it activates in the background while you do the rest.
+2. **Domain + Resend.** Until this works nobody can create an account, which
+   also means a reviewer cannot get into the app.
+3. **Deploy to Fly.** This produces the HTTPS URL the iOS build points at, so
+   nothing about step 5 can start until it is live.
+4. **Build, archive, submit.** Expect the first review to take a few days, and
+   expect at least one round of questions.
+5. **Stripe.** Payments can be switched on after the app is listed — the escrow
+   UI states plainly that payments are off until the keys exist, so shipping
+   without them is honest rather than broken.
+
+Two things to know about the review queue, because they change how you plan:
+
+- **A rejection is a conversation, not a verdict.** You reply in Resolution
+  Center, fix or explain, and resubmit. Most first apps get at least one.
+- **Content changes do not need review.** Because the shell loads your deployed
+  URL, fixing copy, adding a category or changing the fee ships instantly. Only
+  native capability changes — a new permission, a new plugin — need a new build.
