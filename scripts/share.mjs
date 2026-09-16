@@ -8,6 +8,7 @@
  * your laptop. It's for showing people, not for launching.
  */
 import { spawn, spawnSync } from "node:child_process";
+import { connect } from "node:net";
 import { networkInterfaces } from "node:os";
 
 const PORT = process.env.PORT ?? "3000";
@@ -19,6 +20,35 @@ function lanAddress() {
     }
   }
   return null;
+}
+
+/**
+ * A tunnel is a doorway to a server, not a server. Pointing one at a port
+ * nothing is listening on produces a link that answers "Bad Gateway" from the
+ * phone, with nothing on screen explaining why — so check first.
+ */
+function isServerRunning(port) {
+  return new Promise((resolve) => {
+    const socket = connect({ host: "127.0.0.1", port: Number(port) });
+    const done = (result) => {
+      socket.destroy();
+      resolve(result);
+    };
+    socket.setTimeout(1500);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
+}
+
+if (!(await isServerRunning(PORT))) {
+  console.log(`\nNothing is running on port ${PORT}, so there's nothing to share yet.`);
+  console.log("\nThe tunnel only forwards to the app — it doesn't start it. You need both,");
+  console.log("in two terminal tabs:\n");
+  console.log("    Tab 1:   npm run dev      ← leave this running");
+  console.log("    Tab 2:   npm run share    ← this one\n");
+  console.log("Open a new tab with Cmd+T, start the app there, then run this again.\n");
+  process.exit(1);
 }
 
 const lan = lanAddress();
