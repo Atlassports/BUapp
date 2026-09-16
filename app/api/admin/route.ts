@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import {
   isAdmin,
+  refundPayment,
+  releasePayment,
   removeTask,
   resolveReport,
   suspendUser,
@@ -32,6 +34,17 @@ export async function POST(req: Request) {
     case "remove_task":
       removeTask(String(id));
       break;
+    // Resolving a frozen payment: id is the task, and the decision is final.
+    case "release_payment": {
+      const result = await releasePayment(String(id), "confirmed");
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+      break;
+    }
+    case "refund_payment": {
+      const result = await refundPayment(String(id), String(note ?? "Resolved by moderation"));
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+      break;
+    }
     default:
       return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   }

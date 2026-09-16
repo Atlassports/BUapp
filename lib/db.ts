@@ -178,6 +178,42 @@ CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
 -- Native device tokens for the App Store build. Web Push covers browsers and
 -- installed PWAs; APNs covers the real iOS app. Same notification layer, two
 -- transports, so a person gets exactly one alert wherever they actually are.
+-- Payments ledger. Every money movement is a row, so the state of a task's
+-- funds is never inferred from Stripe alone — a webhook that never arrives
+-- leaves an obvious gap rather than a silently wrong balance.
+CREATE TABLE IF NOT EXISTS payments (
+  id                TEXT PRIMARY KEY,
+  task_id           TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  payer_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  payee_id          TEXT REFERENCES users(id) ON DELETE SET NULL,
+  amount_cents      INTEGER NOT NULL,
+  fee_cents         INTEGER NOT NULL,
+  payout_cents      INTEGER NOT NULL,
+  -- held: poster charged, money with the platform
+  -- released: transferred to the tasker
+  -- refunded: returned to the poster
+  -- disputed: frozen pending review
+  status            TEXT NOT NULL DEFAULT 'pending',
+  intent_id         TEXT,
+  transfer_id       TEXT,
+  refund_id         TEXT,
+  auto_release_at   INTEGER,
+  created_at        INTEGER NOT NULL,
+  held_at           INTEGER,
+  released_at       INTEGER,
+  refunded_at       INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_payments_task ON payments(task_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status, auto_release_at);
+
+-- Stripe events we have already applied, so a redelivered webhook cannot
+-- release the same money twice.
+CREATE TABLE IF NOT EXISTS stripe_events (
+  id         TEXT PRIMARY KEY,
+  type       TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS device_tokens (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -291,6 +327,9 @@ function migrate(database: DatabaseSync) {
     ["users", "notify_offers INTEGER NOT NULL DEFAULT 1"],
     ["users", "notify_messages INTEGER NOT NULL DEFAULT 1"],
     ["users", "notify_nearby INTEGER NOT NULL DEFAULT 0"],
+    ["users", "stripe_account_id TEXT"],
+    ["users", "payouts_enabled INTEGER NOT NULL DEFAULT 0"],
+    ["users", "stripe_customer_id TEXT"],
     ["reports", "status TEXT NOT NULL DEFAULT 'open'"],
     ["reports", "resolved_at INTEGER"],
     ["reports", "resolution TEXT NOT NULL DEFAULT ''"],

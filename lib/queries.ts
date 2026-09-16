@@ -1,6 +1,7 @@
 import "server-only";
 import { all, get, id, run, tx } from "./db";
 import { notify } from "./notify";
+import { paymentForTask, paymentsConfigured, releasePayment } from "./payments";
 import { publicUserById, toPublicUser } from "./auth";
 import { haversineMiles } from "./geo";
 import { reachOf, transportSatisfies, type TransportId } from "./taxonomy";
@@ -511,10 +512,21 @@ export function declineOffer(offerId: string, posterId: string): { ok: boolean; 
 }
 
 /** Completion is confirmed by the poster — that's the release trigger for escrow. */
-export function completeTask(taskId: string, posterId: string): { ok: boolean; error?: string } {
+export async function completeTask(taskId: string, posterId: string): Promise<{ ok: boolean; error?: string }> {
   const task = get<Task>(`SELECT * FROM tasks WHERE id = ?`, taskId);
   if (!task || task.poster_id !== posterId) return { ok: false, error: "Not your task." };
   if (task.status !== "assigned") return { ok: false, error: "This task isn't in progress." };
+
+  // Move the money first. Marking the work done while the payout fails would
+  // leave the tasker finished and unpaid with no obvious trace.
+  if (paymentsConfigured()) {
+    const payment = paymentForTask(taskId);
+    if (payment && payment.status === "held") {
+      const released = await releasePayment(taskId, "confirmed");
+      if (!released.ok) return { ok: false, error: released.error };
+    }
+  }
+
   run(`UPDATE tasks SET status = 'completed', completed_at = ? WHERE id = ?`, Date.now(), taskId);
   if (task.assignee_id) {
     void notify({

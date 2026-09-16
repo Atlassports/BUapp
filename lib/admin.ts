@@ -73,8 +73,49 @@ export function unsuspendUser(userId: string): void {
   run(`UPDATE users SET suspended_at = NULL, suspended_reason = '' WHERE id = ?`, userId);
 }
 
+export { refundPayment, releasePayment } from "./payments";
+
 export function removeTask(taskId: string): void {
   run(`UPDATE tasks SET status = 'cancelled' WHERE id = ?`, taskId);
+}
+
+export type DisputeView = {
+  payment: {
+    id: string;
+    task_id: string;
+    amount_cents: number;
+    payout_cents: number;
+    status: string;
+    held_at: number | null;
+  };
+  task: Task | null;
+  poster: PublicUser | null;
+  tasker: PublicUser | null;
+  reason: string;
+};
+
+/** Frozen payments waiting on a decision — the queue that matters most. */
+export function listDisputes(): DisputeView[] {
+  const rows = all<{
+    id: string; task_id: string; payer_id: string; payee_id: string | null;
+    amount_cents: number; payout_cents: number; status: string; held_at: number | null;
+  }>(`SELECT * FROM payments WHERE status = 'disputed' ORDER BY held_at DESC`);
+
+  return rows.map((p) => ({
+    payment: {
+      id: p.id, task_id: p.task_id, amount_cents: p.amount_cents,
+      payout_cents: p.payout_cents, status: p.status, held_at: p.held_at,
+    },
+    task: get<Task>(`SELECT * FROM tasks WHERE id = ?`, p.task_id) ?? null,
+    poster: publicUserById(p.payer_id),
+    tasker: p.payee_id ? publicUserById(p.payee_id) : null,
+    reason:
+      get<{ detail: string }>(
+        `SELECT detail FROM reports WHERE target_id = ? AND reason = 'Payment dispute'
+         ORDER BY created_at DESC LIMIT 1`,
+        p.task_id,
+      )?.detail ?? "",
+  }));
 }
 
 export type AdminStats = {
@@ -89,6 +130,8 @@ export type AdminStats = {
   messages: number;
   orgs: number;
   reports_open: number;
+  disputes_open: number;
+  held_cents: number;
   signups_7d: number;
   tasks_7d: number;
 };
@@ -120,6 +163,9 @@ export function adminStats(): AdminStats {
     messages: count(`SELECT COUNT(*) AS c FROM messages`),
     orgs: count(`SELECT COUNT(*) AS c FROM orgs`),
     reports_open: count(`SELECT COUNT(*) AS c FROM reports WHERE status = 'open'`),
+    disputes_open: count(`SELECT COUNT(*) AS c FROM payments WHERE status = 'disputed'`),
+    held_cents: all<{ amount_cents: number }>(`SELECT amount_cents FROM payments WHERE status = 'held'`)
+      .reduce((sum, p) => sum + p.amount_cents, 0),
     signups_7d: count(`SELECT COUNT(*) AS c FROM users WHERE created_at > ?`, week),
     tasks_7d: count(`SELECT COUNT(*) AS c FROM tasks WHERE created_at > ?`, week),
   };

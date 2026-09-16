@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CampusMap } from "@/components/CampusMap";
+import { MapboxMap } from "@/components/MapboxMap";
 import { requireUser } from "@/lib/auth";
 import { DEFAULT_FILTERS, listTasks } from "@/lib/queries";
 
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function MapPage() {
   const user = await requireUser();
   const tasks = listTasks(user, { ...DEFAULT_FILTERS, sort: "nearby" });
+  // Real tiles when a token is configured; the drawn campus map otherwise, so
+  // the page never depends on a third party being reachable or paid for.
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
 
   return (
     <>
@@ -19,7 +23,11 @@ export default async function MapPage() {
         </Link>
         <h1 className="text-[19px] font-bold tracking-tight">Map</h1>
       </header>
-      <CampusMap tasks={tasks} home={{ lat: user.home_lat, lng: user.home_lng }} />
+      {token ? (
+        <MapboxMap token={token} tasks={tasks} home={{ lat: user.home_lat, lng: user.home_lng }} />
+      ) : (
+        <CampusMap tasks={tasks} home={{ lat: user.home_lat, lng: user.home_lng }} />
+      )}
     </>
   );
 }

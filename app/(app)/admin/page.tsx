@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminAction } from "@/components/AdminActions";
 import { Avatar, EmptyState, SectionLabel } from "@/components/ui";
 import { currentUser } from "@/lib/auth";
-import { adminStats, isAdmin, listReports, recentUsers } from "@/lib/admin";
+import { adminStats, isAdmin, listDisputes, listReports, recentUsers } from "@/lib/admin";
 import { money, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export default async function AdminPage({
   const stats = adminStats();
   const reports = listReports(tab === "resolved" ? "resolved" : "open");
   const users = recentUsers(40);
+  const disputes = listDisputes();
 
   return (
     <>
@@ -42,11 +43,19 @@ export default async function AdminPage({
           sub={stats.suspended > 0 ? `${stats.suspended} suspended` : "none suspended"}
           alert={stats.reports_open > 0}
         />
+        <Stat label="Held in escrow" value={money(stats.held_cents)} sub="funded, not yet released" />
+        <Stat
+          label="Disputes"
+          value={String(stats.disputes_open)}
+          sub={stats.disputes_open > 0 ? "money frozen" : "nothing frozen"}
+          alert={stats.disputes_open > 0}
+        />
       </div>
 
       <div className="rail px-4 pt-5">
         {[
           ["reports", "Open reports"],
+          ["disputes", `Disputes${disputes.length ? ` (${disputes.length})` : ""}`],
           ["resolved", "Resolved"],
           ["users", "Students"],
         ].map(([id, label]) => (
@@ -56,7 +65,54 @@ export default async function AdminPage({
         ))}
       </div>
 
-      {tab === "users" ? (
+      {tab === "disputes" ? (
+        <>
+          <SectionLabel>{disputes.length} frozen {disputes.length === 1 ? "payment" : "payments"}</SectionLabel>
+          {disputes.length === 0 ? (
+            <EmptyState
+              emoji="🧊"
+              title="No frozen payments"
+              body="When either side reports a problem, the money stops here until you decide where it goes."
+            />
+          ) : (
+            <div className="mx-3 space-y-2.5">
+              {disputes.map((d) => (
+                <div key={d.payment.id} className="card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold">{d.task?.title ?? "Task removed"}</p>
+                      <p className="faint mt-0.5 text-[12px]">
+                        {money(d.payment.amount_cents)} held · {d.poster?.name ?? "?"} → {d.tasker?.name ?? "?"}
+                      </p>
+                    </div>
+                    <span className="price text-[17px] text-scarlet-600 dark:text-scarlet-400">
+                      {money(d.payment.amount_cents)}
+                    </span>
+                  </div>
+
+                  {d.reason && <p className="muted mt-2.5 text-[13px] leading-relaxed">“{d.reason}”</p>}
+
+                  <p className="faint mt-3 text-[12px] leading-relaxed">
+                    Releasing sends {money(d.payment.payout_cents)} to {d.tasker?.name ?? "the tasker"}.
+                    Refunding returns {money(d.payment.amount_cents)} to {d.poster?.name ?? "the poster"}.
+                    Both are final.
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <AdminAction action="release_payment" id={d.payment.task_id} label="Release to tasker" />
+                    <AdminAction action="refund_payment" id={d.payment.task_id} label="Refund poster" danger promptFor="Reason" />
+                    {d.task && (
+                      <Link href={`/tasks/${d.task.id}`} prefetch={false} className="chip">
+                        Open task
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : tab === "users" ? (
         <>
           <SectionLabel>Recent signups</SectionLabel>
           <div className="mx-3 overflow-hidden rounded-2xl border hairline divide-hair" style={{ background: "var(--surface)" }}>

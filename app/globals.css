@@ -211,6 +211,32 @@
 
   .divide-hair > * + * { border-top: 1px solid var(--line); }
 
+  /* Markers on the tiled map. Plain DOM elements, so they inherit the app's
+     own type and color rather than looking like a map library's defaults. */
+  .sk-marker {
+    background: var(--color-scarlet-600);
+    color: #fff;
+    border: 2px solid var(--surface);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 1px 6px rgb(0 0 0 / 0.22);
+    cursor: pointer;
+    transition: transform 0.12s ease;
+  }
+  .sk-marker:active { transform: scale(0.92); }
+
+  .sk-me {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--color-scarlet-600);
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-scarlet-600) 22%, transparent);
+  }
+
   /* Skeleton block used by every loading state. */
   .sk {
     background: var(--surface-2);

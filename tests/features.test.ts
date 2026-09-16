@@ -60,3 +60,20 @@ describe("platform fee", () => {
     assert.equal(feeBreakdown(10_000).fee, 900);
   });
 });
+
+describe("escrow ledger arithmetic", () => {
+  it("splits a charge so fee plus payout always equals the total", () => {
+    for (const cents of [500, 1200, 2000, 2500, 4500, 10_000, 49_999]) {
+      const { fee, payout, total } = feeBreakdown(cents);
+      assert.equal(fee + payout, total, `${cents} does not reconcile`);
+      assert.ok(fee >= 0 && payout > 0);
+    }
+  });
+
+  it("never takes more in fees than the standard rate", () => {
+    for (const cents of [100, 2000, 9_999, 50_000]) {
+      const { fee } = feeBreakdown(cents);
+      assert.ok(fee <= Math.ceil(cents * 0.1), `fee exceeded 10% at ${cents}`);
+    }
+  });
+});

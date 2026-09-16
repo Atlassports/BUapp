@@ -11,13 +11,15 @@ import {
   WithdrawOffer,
 } from "@/components/TaskActions";
 import { Banner, SectionLabel, TrustMeter, UserLine } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { publicUserById, requireUser } from "@/lib/auth";
 import { getTask, myOffer, offersForTask, pendingReview } from "@/lib/queries";
 import { categoryOf, TRANSPORT_BY_ID } from "@/lib/taxonomy";
 import { formatDistance, SAFE_MEETING_SPOTS } from "@/lib/geo";
 import { dueLabel, duration, money, priceLabel, timeAgo } from "@/lib/format";
 import { ACADEMIC_NOTICE } from "@/lib/safety";
 import { isSaved } from "@/lib/saved";
+import { FundTaskButton, DisputeButton } from "@/components/PaymentSheet";
+import { AUTO_RELEASE_HOURS, paymentForTask, paymentsConfigured } from "@/lib/payments";
 import { orgById } from "@/lib/orgs";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +39,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const canReview = pendingReview(task.id, user.id);
   const saved = isSaved(user.id, task.id);
   const org = task.org_id ? orgById(task.org_id) : null;
+  const payment = paymentForTask(task.id);
+  const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null;
 
   return (
     <>
@@ -181,12 +185,44 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                   ? "The money is set aside. It moves when you confirm the work is done — never before, and never in cash."
                   : "The poster has funded this task. Finish the work, then they confirm and your payout is released."}
               </p>
-              <Banner>
-                Payments are simulated in this build. Stripe Connect handles the real escrow, payouts
-                and disputes — wired in behind the same interface.
-              </Banner>
               {isPoster && task.agreed_cents && (
-                <CompleteButton taskId={task.id} amountCents={task.agreed_cents} />
+                <>
+                  {!payment || payment.status === "pending" ? (
+                    <FundTaskButton
+                      taskId={task.id}
+                      amountCents={task.agreed_cents}
+                      publishableKey={stripeKey}
+                      taskerName={publicUserById(task.assignee_id!)?.name ?? "They"}
+                    />
+                  ) : payment.status === "disputed" ? (
+                    <Banner tone="warn">
+                      This payment is frozen while we review the report. Nothing moves until then.
+                    </Banner>
+                  ) : (
+                    <CompleteButton taskId={task.id} amountCents={task.agreed_cents} />
+                  )}
+                </>
+              )}
+
+              {isAssignee && (
+                <>
+                  {payment?.status === "held" ? (
+                    <Banner>
+                      Funded and held. It reaches you when they confirm — or automatically after{" "}
+                      {AUTO_RELEASE_HOURS} hours if they go quiet, so you can't be left unpaid.
+                    </Banner>
+                  ) : payment?.status === "disputed" ? (
+                    <Banner tone="warn">This payment is frozen while a report is reviewed.</Banner>
+                  ) : (
+                    <Banner tone="warn">
+                      Not funded yet. Wait until you see it held before starting the work.
+                    </Banner>
+                  )}
+                </>
+              )}
+
+              {paymentsConfigured() && payment?.status === "held" && (isPoster || isAssignee) && (
+                <DisputeButton taskId={task.id} />
               )}
             </div>
           </>
