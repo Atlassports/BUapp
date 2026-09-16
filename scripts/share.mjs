@@ -71,8 +71,57 @@ if (!hasCloudflared) {
 }
 
 console.log(`Opening a public link to localhost:${PORT} — press Ctrl+C to close it.\n`);
+console.log("Starting the tunnel…\n");
 
 const tunnel = spawn("cloudflared", ["tunnel", "--url", `http://localhost:${PORT}`], {
-  stdio: "inherit",
+  stdio: ["ignore", "pipe", "pipe"],
 });
-tunnel.on("exit", (code) => process.exit(code ?? 0));
+
+let announced = false;
+
+/**
+ * cloudflared logs a wall of INF lines and prints the one URL that matters
+ * inside an ASCII box in the middle of it, where it is easy to scroll past.
+ * Pull it out and show it on its own; pass through anything that looks like a
+ * real problem, and drop the rest.
+ */
+function handle(chunk) {
+  for (const line of chunk.toString().split("\n")) {
+    if (!line.trim()) continue;
+
+    const match = line.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
+    if (match && !announced) {
+      announced = true;
+      const url = match[0];
+      // Size the box to its contents so it lines up for any tunnel name.
+      const label = "Open this on your phone:";
+      const inner = Math.max(url.length, label.length) + 4;
+      const line = (text = "") => `  │ ${text.padEnd(inner - 1)}│`;
+      console.log(`  ┌${"─".repeat(inner)}┐`);
+      console.log(line(` ${label}`));
+      console.log(line());
+      console.log(line(` ${url}`));
+      console.log(line());
+      console.log(`  └${"─".repeat(inner)}┘\n`);
+      console.log("  Keep this tab and the `npm run dev` tab both running.");
+      console.log("  Your verification code still prints in the dev tab.\n");
+      continue;
+    }
+
+    // Surface genuine failures; swallow the routine startup chatter.
+    if (/\b(ERR|WRN|error|failed|refused)\b/i.test(line) && !/INF/.test(line)) {
+      console.error(line);
+    }
+  }
+}
+
+tunnel.stdout.on("data", handle);
+tunnel.stderr.on("data", handle);
+
+tunnel.on("exit", (code) => {
+  if (!announced) {
+    console.error("\nThe tunnel closed before it produced a link.");
+    console.error("Check that `npm run dev` is still running in the other tab, then try again.\n");
+  }
+  process.exit(code ?? 0);
+});
