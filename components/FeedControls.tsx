@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { CATEGORIES, TRANSPORT, type TransportId } from "@/lib/taxonomy";
 import { DISTANCE_FILTERS } from "@/lib/geo";
 
@@ -23,8 +23,13 @@ export function FeedControls({ activeCount, myTransport }: { activeCount: number
   const router = useRouter();
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
+  const [, startTransition] = useTransition();
 
-  const sort = params.get("sort") ?? "nearby";
+  const urlSort = params.get("sort") ?? "nearby";
+  // Show the tapped sort as selected right away; the feed catches up behind it.
+  const [pendingSort, setPendingSort] = useState<string | null>(null);
+  useEffect(() => setPendingSort(null), [urlSort]);
+  const sort = pendingSort ?? urlSort;
   const cats = params.get("cat")?.split(",").filter(Boolean) ?? [];
 
   function apply(next: Record<string, string | null>) {
@@ -33,7 +38,9 @@ export function FeedControls({ activeCount, myTransport }: { activeCount: number
       if (v === null || v === "") sp.delete(k);
       else sp.set(k, v);
     }
-    router.replace(`/feed?${sp.toString()}`, { scroll: false });
+    // A transition keeps the current feed interactive while the next one loads,
+    // instead of blanking the list mid-tap.
+    startTransition(() => router.replace(`/feed?${sp.toString()}`, { scroll: false }));
   }
 
   function toggleCat(id: string) {
@@ -48,7 +55,10 @@ export function FeedControls({ activeCount, myTransport }: { activeCount: number
           {SORTS.map((s) => (
             <button
               key={s.id}
-              onClick={() => apply({ sort: s.id })}
+              onClick={() => {
+                setPendingSort(s.id);
+                apply({ sort: s.id });
+              }}
               className={`shrink-0 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${
                 sort === s.id
                   ? "bg-[var(--ink)] text-[var(--bg)]"

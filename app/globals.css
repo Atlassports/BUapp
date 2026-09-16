@@ -25,6 +25,7 @@
   --animate-rise: rise 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-sheet: sheet 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-fade: fade 0.2s ease-out;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes rise {
@@ -38,6 +39,10 @@
 @keyframes fade {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
 }
 
 :root {
@@ -118,7 +123,10 @@
     border-radius: var(--radius-card);
     transition: border-color 0.15s ease, transform 0.15s ease;
   }
-  .card:active { transform: scale(0.994); }
+  .card:active {
+    transform: scale(0.985);
+    border-color: var(--line-strong);
+  }
   @media (hover: hover) {
     .card:hover { border-color: var(--line-strong); }
   }
@@ -129,6 +137,8 @@
 
   /* Chip: the workhorse. Tags, filters, transport, meta — all one shape. */
   .chip {
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+      transform 0.1s ease;
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
@@ -142,6 +152,7 @@
     color: var(--ink-2);
     white-space: nowrap;
   }
+  .chip:active { transform: scale(0.96); }
   .chip-active {
     background: var(--color-scarlet-600);
     border-color: var(--color-scarlet-600);
@@ -199,4 +210,34 @@
   .rail::-webkit-scrollbar { display: none; }
 
   .divide-hair > * + * { border-top: 1px solid var(--line); }
+
+  /* Skeleton block used by every loading state. */
+  .sk {
+    background: var(--surface-2);
+    border-radius: 0.5rem;
+    animation: var(--animate-shimmer);
+  }
+
+  /* Pages fade in rather than snapping, which reads as smoother even when the
+     navigation underneath takes exactly as long. */
+  .page-in {
+    animation: pageIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Respect a reduced-motion preference: keep the app usable, drop the motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

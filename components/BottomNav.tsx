@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const ITEMS = [
   { href: "/feed", label: "Home", icon: HomeIcon },
@@ -14,6 +15,13 @@ const ITEMS = [
 export function BottomNav({ unread }: { unread: number }) {
   const pathname = usePathname();
 
+  // Every page here is server-rendered against the database, so a tap has a
+  // round trip before the route actually changes. Highlighting the tapped tab
+  // immediately — rather than waiting for that to land — is what removes the
+  // "did it register?" feeling.
+  const [tapped, setTapped] = useState<string | null>(null);
+  useEffect(() => setTapped(null), [pathname]);
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl hairline"
@@ -24,7 +32,9 @@ export function BottomNav({ unread }: { unread: number }) {
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
         {ITEMS.map(({ href, label, icon: Icon, ...rest }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
+          const onRoute = pathname === href || pathname.startsWith(`${href}/`);
+          // A pending tap wins, so exactly one tab ever looks selected.
+          const active = tapped ? tapped === href : onRoute;
           const primary = "primary" in rest && rest.primary;
 
           if (primary) {
@@ -32,6 +42,8 @@ export function BottomNav({ unread }: { unread: number }) {
               <Link
                 key={href}
                 href={href}
+                prefetch
+                onClick={() => setTapped(href)}
                 className="flex flex-1 flex-col items-center justify-center py-2"
                 aria-label="Post a task"
               >
@@ -46,11 +58,16 @@ export function BottomNav({ unread }: { unread: number }) {
             <Link
               key={href}
               href={href}
-              className="relative flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors"
+              prefetch
+              onClick={() => setTapped(href)}
+              className="relative flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors duration-150"
               style={{ color: active ? "var(--color-scarlet-600)" : "var(--ink-3)" }}
-              aria-current={active ? "page" : undefined}
+              aria-current={onRoute ? "page" : undefined}
             >
-              <span className="relative">
+              <span
+                className="relative transition-transform duration-200"
+                style={{ transform: active ? "translateY(-1px) scale(1.06)" : "none" }}
+              >
                 <Icon active={active} />
                 {href === "/messages" && unread > 0 && (
                   <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-scarlet-600 px-1 text-[10px] font-bold text-white">
