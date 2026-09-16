@@ -10,6 +10,17 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NODE_ENV !== "production") return;
 
+  // A local production build for measuring speed, not a deployment. It gets a
+  // throwaway secret and console codes, so it is useless as one.
+  if (process.env.SIDEKICK_PREVIEW === "1") {
+    console.log(
+      "\n  Preview mode: production build, local only.\n" +
+        "  Verification codes print here. Sessions end when this process does.\n" +
+        "  Never set SIDEKICK_PREVIEW on a real deployment.\n",
+    );
+    return;
+  }
+
   const problems: string[] = [];
 
   const secret = process.env.SIDEKICK_SECRET;

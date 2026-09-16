@@ -24,6 +24,30 @@ Sign in with any seeded address — `alexr@bu.edu`, `priyan@bu.edu`,
 development the verification code is **printed to the server console**; there is
 no mail provider to configure.
 
+## Development vs. preview speed
+
+`npm run dev` recompiles routes on demand and ships unminified code with source
+maps. It is built for editing, not for speed, and it is not what a student would
+experience. Measured on the same machine, same pages:
+
+| Page | `npm run dev` | `npm run preview` |
+|------|--------------:|------------------:|
+| Feed | 562 ms · 340 KB | 48 ms · 169 KB |
+| Available Now | 90 ms · 49 KB | 17 ms · 23 KB |
+| You | 97 ms · 60 KB | 14 ms · 30 KB |
+| A route not yet opened | 728 ms | 10 ms |
+
+So before judging how the app feels — or showing it to anyone:
+
+```bash
+npm run preview
+```
+
+That builds and serves the production bundle locally, while still printing
+verification codes to the console so you can sign in. It is deliberately not a
+deployment: the signing secret is regenerated on every run, so any session it
+issues dies with the process.
+
 ## Getting it onto a phone
 
 Three levels, cheapest first.

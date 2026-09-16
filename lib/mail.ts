@@ -20,13 +20,23 @@ export function mailIsConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
 
+/**
+ * `npm run preview` runs a production build locally so you can see real
+ * performance. It is explicitly not a deployment: codes still print to the
+ * console, and the signing secret is regenerated every run, so any session it
+ * issues dies the moment the process does.
+ */
+export function isPreview(): boolean {
+  return process.env.SIDEKICK_PREVIEW === "1";
+}
+
 export function mailFrom(): string {
   return process.env.MAIL_FROM ?? "Sidekick <onboarding@resend.dev>";
 }
 
 export async function sendVerificationCode(email: string, code: string): Promise<MailResult> {
   if (!mailIsConfigured()) {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" && !isPreview()) {
       throw new MailError(
         "RESEND_API_KEY is not set; refusing to drop a verification email.",
         "not_configured",

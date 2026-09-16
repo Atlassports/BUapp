@@ -11,7 +11,8 @@
     "mail:test": "tsx --env-file-if-exists=.env scripts/check-mail.ts",
     "share": "node scripts/share.mjs",
     "db:repair": "tsx --env-file-if-exists=.env scripts/repair-emails.ts",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "preview": "next build && node scripts/preview.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
