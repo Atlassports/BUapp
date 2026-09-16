@@ -49,7 +49,7 @@ export function FeedControls({ activeCount, myTransport }: { activeCount: number
             <button
               key={s.id}
               onClick={() => apply({ sort: s.id })}
-              className={`shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+              className={`shrink-0 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${
                 sort === s.id
                   ? "bg-[var(--ink)] text-[var(--bg)]"
                   : "muted"

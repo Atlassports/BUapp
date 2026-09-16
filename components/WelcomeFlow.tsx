@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { classYearOptions } from "@/lib/academics";
 import { PLACES } from "@/lib/geo";
 import { SKILL_SUGGESTIONS, TRANSPORT, type TransportId } from "@/lib/taxonomy";
 
@@ -161,7 +162,7 @@ export function WelcomeFlow({ domain }: { domain: string }) {
           <div>
             <label className="mb-2 block text-sm font-semibold">Class year</label>
             <div className="rail">
-              {["2026", "2027", "2028", "2029", "Grad", "Faculty/Staff"].map((y) => (
+              {classYearOptions().map((y) => (
                 <button
                   key={y}
                   type="button"
@@ -239,7 +240,7 @@ export function WelcomeFlow({ domain }: { domain: string }) {
               className="field resize-none"
               rows={3}
               maxLength={240}
-              placeholder="CAS '27. Usually around West Campus. Have a car on weekends."
+              placeholder="Usually around West Campus. Have a car on weekends."
               value={bio}
               onChange={(e) => setBio(e.target.value)}
             />

@@ -6,6 +6,7 @@ import { requireUser, toPublicUser } from "@/lib/auth";
 import { tasksAssignedTo, tasksPostedBy } from "@/lib/queries";
 import { TRANSPORT_BY_ID } from "@/lib/taxonomy";
 import { money } from "@/lib/format";
+import { feeBreakdown } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,11 @@ export default async function MePage() {
   const user = await requireUser();
   const me = toPublicUser(user);
   const posted = tasksPostedBy(user.id, user);
-  const working = tasksAssignedTo(user.id, user);
+  const assigned = tasksAssignedTo(user.id, user);
+  const working = assigned.filter((t) => t.status === "assigned");
+  const finished = assigned.filter((t) => t.status === "completed");
 
-  const earned = working
-    .filter((t) => t.status === "completed")
-    .reduce((sum, t) => sum + Math.round((t.agreed_cents ?? 0) * 0.9), 0);
+  const earned = finished.reduce((sum, t) => sum + feeBreakdown(t.agreed_cents ?? 0).payout, 0);
 
   return (
     <>
@@ -40,7 +41,7 @@ export default async function MePage() {
           </div>
         </div>
 
-        <div className="rail mt-3.5">
+        <div className="mt-3.5 flex flex-wrap gap-2">
           {me.transport.map((t) => {
             const mode = TRANSPORT_BY_ID.get(t);
             return mode ? (
@@ -95,9 +96,20 @@ export default async function MePage() {
         ) : (
           <div className="overflow-hidden rounded-2xl border hairline divide-hair" style={{ background: "var(--surface)" }}>
             {working.map((t) => (
-              <TaskRow key={t.id} task={t} trailing={t.status} />
+              <TaskRow key={t.id} task={t} trailing="in progress" />
             ))}
           </div>
+        )}
+
+        {finished.length > 0 && (
+          <>
+            <SectionLabel>Work you've completed</SectionLabel>
+            <div className="overflow-hidden rounded-2xl border hairline divide-hair" style={{ background: "var(--surface)" }}>
+              {finished.map((t) => (
+                <TaskRow key={t.id} task={t} trailing={`earned ${money(feeBreakdown(t.agreed_cents ?? 0).payout)}`} />
+              ))}
+            </div>
+          </>
         )}
 
         <SectionLabel>Tasks you posted</SectionLabel>

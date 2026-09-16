@@ -44,7 +44,7 @@ export function AvailabilityToggle({ availableUntil }: { availableUntil: number 
         />
       </div>
 
-      <div className="rail mt-3">
+      <div className="mt-3 flex flex-wrap gap-2">
         {WINDOWS.map((w) => (
           <button key={w.minutes} className="chip" disabled={busy} onClick={() => set(w.minutes)}>
             {active ? `Extend ${w.label}` : `Free for ${w.label}`}

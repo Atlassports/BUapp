@@ -172,12 +172,23 @@ if (process.env.NODE_ENV !== "production") globalThis.__sidekickDb = db;
 
 type Param = string | number | bigint | null | Uint8Array;
 
+/**
+ * node:sqlite hands back rows with a null prototype. React refuses to serialize
+ * those from a Server Component to a Client Component ("Only plain objects...
+ * can be passed"), which broke the message thread the moment a row reached it.
+ * Normalizing here means no future query can reintroduce it.
+ */
+function plain<T>(row: unknown): T {
+  return { ...(row as object) } as T;
+}
+
 export function all<T>(sql: string, ...params: Param[]): T[] {
-  return db.prepare(sql).all(...params) as T[];
+  return db.prepare(sql).all(...params).map((r) => plain<T>(r));
 }
 
 export function get<T>(sql: string, ...params: Param[]): T | undefined {
-  return db.prepare(sql).get(...params) as T | undefined;
+  const row = db.prepare(sql).get(...params);
+  return row === undefined ? undefined : plain<T>(row);
 }
 
 export function run(sql: string, ...params: Param[]) {

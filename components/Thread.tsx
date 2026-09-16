@@ -57,8 +57,8 @@ export function Thread({
   }
 
   return (
-    <>
-      <div className="space-y-2 px-4 py-4">
+    <div className="flex flex-1 flex-col">
+      <div className="flex-1 space-y-2 px-4 py-4">
         {messages.map((m) => {
           const mine = m.sender_id === meId;
           return (
@@ -81,7 +81,7 @@ export function Thread({
       </div>
 
       <div
-        className="sticky bottom-0 border-t backdrop-blur-xl hairline"
+        className="sticky bottom-0 mt-auto border-t backdrop-blur-xl hairline"
         style={{
           background: "color-mix(in srgb, var(--bg) 92%, transparent)",
           paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
@@ -126,6 +126,6 @@ export function Thread({
           </button>
         </form>
       </div>
-    </>
+    </div>
   );
 }

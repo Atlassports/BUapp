@@ -6,8 +6,12 @@
  *   npm run db:reset
  */
 import { db, id, run } from "../lib/db";
+import { undergraduateYears } from "../lib/academics";
 import { PLACE_BY_ID } from "../lib/geo";
 import type { CategoryId, TransportId } from "../lib/taxonomy";
+
+// Derived, so the seeded campus never contains a class that already graduated.
+const [FIRST_YEAR, SOPHOMORE, JUNIOR, SENIOR] = undergraduateYears();
 
 const now = Date.now();
 const MIN = 60_000;
@@ -33,18 +37,18 @@ type SeedUser = {
 };
 
 const USERS: SeedUser[] = [
-  { key: "alex", name: "Alex R.", handle: "alexr", year: "2027", place: "allston-pratt", transport: ["walk", "car"], skills: ["Heavy lifting", "Furniture assembly"], bio: "ENG '27. Have a car most weekends — happy to do furniture and airport runs.", ageDays: 210 },
-  { key: "priya", name: "Priya N.", handle: "priyan", year: "2026", place: "west", transport: ["walk", "bike", "mbta"], skills: ["Organic chemistry", "Chemistry", "Calculus"], bio: "Pre-med, CAS '26. TA'd CH203 for two semesters.", ageDays: 320 },
-  { key: "marcus", name: "Marcus T.", handle: "marcust", year: "2028", place: "warren", transport: ["walk"], skills: ["Video editing", "Photography", "Social media"], bio: "COM '28. Editing reels between classes. Fast turnarounds.", ageDays: 95 },
-  { key: "sofia", name: "Sofia L.", handle: "sofial", year: "2027", place: "myles", transport: ["walk", "mbta"], skills: ["Spanish", "Writing"], bio: "CAS '27, Spanish minor. Always down for a quick errand between classes.", ageDays: 150 },
-  { key: "dev", name: "Dev P.", handle: "devp", year: "2026", place: "cds", transport: ["walk", "bike"], skills: ["Python", "Web development", "Excel"], bio: "CDS '26. I fix laptops and build small sites.", ageDays: 280 },
+  { key: "alex", name: "Alex R.", handle: "alexr", year: JUNIOR, place: "allston-pratt", transport: ["walk", "car"], skills: ["Heavy lifting", "Furniture assembly"], bio: "Engineering. Have a car most weekends — happy to do furniture and airport runs.", ageDays: 210 },
+  { key: "priya", name: "Priya N.", handle: "priyan", year: SENIOR, place: "west", transport: ["walk", "bike", "mbta"], skills: ["Organic chemistry", "Chemistry", "Calculus"], bio: "Pre-med. TA'd CH203 for two semesters.", ageDays: 320 },
+  { key: "marcus", name: "Marcus T.", handle: "marcust", year: SOPHOMORE, place: "warren", transport: ["walk"], skills: ["Video editing", "Photography", "Social media"], bio: "COM. Editing reels between classes. Fast turnarounds.", ageDays: 95 },
+  { key: "sofia", name: "Sofia L.", handle: "sofial", year: JUNIOR, place: "myles", transport: ["walk", "mbta"], skills: ["Spanish", "Writing"], bio: "CAS, Spanish minor. Always down for a quick errand between classes.", ageDays: 150 },
+  { key: "dev", name: "Dev P.", handle: "devp", year: SENIOR, place: "cds", transport: ["walk", "bike"], skills: ["Python", "Web development", "Excel"], bio: "CDS. I fix laptops and build small sites.", ageDays: 280 },
   { key: "hannah", name: "Hannah K.", handle: "hannahk", year: "Grad", place: "south", transport: ["walk", "mbta", "rideshare"], skills: ["Statistics", "Writing"], bio: "Grad student, Questrom. Usually free evenings.", ageDays: 400 },
-  { key: "jordan", name: "Jordan M.", handle: "jordanm", year: "2029", place: "stuvi", transport: ["walk", "bike"], skills: ["Pet care", "Cooking"], bio: "Sargent '29. West Campus. Dog person.", ageDays: 40 },
-  { key: "chen", name: "Chen W.", handle: "chenw", year: "2028", place: "kilachand", transport: ["walk", "mbta"], skills: ["Mandarin", "Graphic design"], bio: "CFA '28. Design work, flyers, posters.", ageDays: 120 },
-  { key: "tariq", name: "Tariq B.", handle: "tariqb", year: "2027", place: "brookline", transport: ["walk", "bike", "car"], skills: ["Music production", "Heavy lifting"], bio: "CFA '27, Brookline. Car available weekdays after 4.", ageDays: 190 },
-  { key: "emma", name: "Emma D.", handle: "emmad", year: "2026", place: "questrom", transport: ["walk", "mbta"], skills: ["Excel", "Social media"], bio: "Questrom '26. Spreadsheets are genuinely fun to me.", ageDays: 350 },
-  { key: "luis", name: "Luis A.", handle: "luisa", year: "2028", place: "fitrec", transport: ["walk", "bike"], skills: ["Photography"], bio: "West Campus. Shoot events and portraits.", ageDays: 88 },
-  { key: "nina", name: "Nina S.", handle: "ninas", year: "2027", place: "danielsen", transport: ["walk", "mbta"], skills: ["Physics", "Calculus"], bio: "ENG '27. Physics and math tutoring.", ageDays: 165 },
+  { key: "jordan", name: "Jordan M.", handle: "jordanm", year: FIRST_YEAR, place: "stuvi", transport: ["walk", "bike"], skills: ["Pet care", "Cooking"], bio: "Sargent. West Campus. Dog person.", ageDays: 40 },
+  { key: "chen", name: "Chen W.", handle: "chenw", year: SOPHOMORE, place: "kilachand", transport: ["walk", "mbta"], skills: ["Mandarin", "Graphic design"], bio: "CFA. Design work, flyers, posters.", ageDays: 120 },
+  { key: "tariq", name: "Tariq B.", handle: "tariqb", year: JUNIOR, place: "brookline", transport: ["walk", "bike", "car"], skills: ["Music production", "Heavy lifting"], bio: "CFA, Brookline. Car available weekdays after 4.", ageDays: 190 },
+  { key: "emma", name: "Emma D.", handle: "emmad", year: SENIOR, place: "questrom", transport: ["walk", "mbta"], skills: ["Excel", "Social media"], bio: "Questrom. Spreadsheets are genuinely fun to me.", ageDays: 350 },
+  { key: "luis", name: "Luis A.", handle: "luisa", year: SOPHOMORE, place: "fitrec", transport: ["walk", "bike"], skills: ["Photography"], bio: "West Campus. Shoot events and portraits.", ageDays: 88 },
+  { key: "nina", name: "Nina S.", handle: "ninas", year: JUNIOR, place: "danielsen", transport: ["walk", "mbta"], skills: ["Physics", "Calculus"], bio: "ENG. Physics and math tutoring.", ageDays: 165 },
 ];
 
 type SeedTask = {

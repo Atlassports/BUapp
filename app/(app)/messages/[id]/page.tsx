@@ -17,7 +17,12 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
   const { offer, task, messages, counterpart, role } = detail;
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    // The app shell already reserves room for the bottom nav, so a full-viewport
+    // height here pushes the composer underneath it.
+    <div
+      className="flex flex-col"
+      style={{ minHeight: "calc(100dvh - 4.5rem - env(safe-area-inset-bottom, 0px))" }}
+    >
       <header
         className="sticky top-0 z-30 border-b backdrop-blur-xl hairline"
         style={{ background: "color-mix(in srgb, var(--bg) 88%, transparent)" }}
@@ -36,7 +41,8 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
                 {counterpart.verified && <VerifiedBadge compact />}
               </span>
               <span className="faint block text-[11px]">
-                {counterpart.completed_count} tasks · trust {counterpart.trust_score}
+                {counterpart.review_count} {counterpart.review_count === 1 ? "review" : "reviews"} ·
+                trust {counterpart.trust_score}
               </span>
             </span>
           </Link>
@@ -51,7 +57,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         </Link>
       </header>
 
-      <div className="flex-1">
+      <div className="flex flex-1 flex-col">
         {offer.status === "pending" && role === "poster" && (
           <div className="px-4 pt-4">
             <Banner>
