@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
   // node_modules and stays small.
   output: "standalone",
 
+  // The dev-only badge defaults to the bottom-left corner, which on a phone
+  // sits directly on top of the Home tab. Top-left overlaps only the logo.
+  // Set `devIndicators: false` to hide it entirely; error reporting is
+  // separate and stays either way.
+  devIndicators: { position: "top-left" },
+
   // Previewing on a phone means the dev server is reached from something other
   // than localhost — a LAN address, or a tunnel hostname from `npm run share`.
   // Next warns on those now and will block them later; listing them keeps the
