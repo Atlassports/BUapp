@@ -1,0 +1,47 @@
+# Fly.io deployment. The volume is what makes SQLite viable in production:
+# without it the database is wiped on every restart.
+#
+#   fly launch --no-deploy        # creates the app, keep this file when asked
+#   fly volumes create sidekick_data --size 1 --region bos
+#   fly secrets set SIDEKICK_SECRET=$(openssl rand -hex 32)
+#   fly secrets set RESEND_API_KEY=re_... MAIL_FROM="Sidekick <verify@yourdomain.com>"
+#   fly deploy
+
+app = "sidekick-bu"
+primary_region = "bos"   # Boston, so it's close to the only campus that matters
+
+[build]
+
+[env]
+  PORT = "3000"
+  SIDEKICK_DB = "/data/sidekick.db"
+  ALLOWED_EMAIL_DOMAIN = "bu.edu"
+
+[[mounts]]
+  source = "sidekick_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  # SQLite means one writer. Keep it at a single machine until the move to
+  # Postgres, or two machines will fight over the same file.
+  min_machines_running = 1
+
+  [http_service.http_options.response.headers]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

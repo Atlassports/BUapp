@@ -24,6 +24,59 @@ Sign in with any seeded address — `alexr@bu.edu`, `priyan@bu.edu`,
 development the verification code is **printed to the server console**; there is
 no mail provider to configure.
 
+## Getting it onto a phone
+
+Three levels, cheapest first.
+
+**1. Your phone, same Wi-Fi — nothing to set up.** `npm run dev` prints a
+`Network:` URL like `http://10.0.0.12:3000`. Open that on your phone. School and
+office Wi-Fi often isolate devices from each other, so if it hangs, skip to 2.
+
+**2. Any phone, anywhere — one command.**
+
+```bash
+npm run share
+```
+
+This prints a public HTTPS link to your laptop's dev server. Good for handing
+someone your screen; the link dies when you stop the command, and everything is
+served by your laptop. Install `cloudflared` once (`brew install cloudflared`)
+for a reliable tunnel.
+
+**3. A real URL that's always up.** See Deploying below.
+
+### Install it to the home screen
+
+On the phone, open the site → Share → **Add to Home Screen**. It gets the
+Sidekick icon and opens without browser chrome, which is most of what makes a
+web app feel native. No App Store review, no TestFlight.
+
+## Deploying
+
+The database is a file on disk, so Sidekick needs a host with a **persistent
+volume** — not a serverless platform, where the filesystem is wiped on every
+request. `Dockerfile` works anywhere; `fly.toml` is set up for Fly.io in Boston:
+
+```bash
+fly launch --no-deploy                 # keep the existing fly.toml when asked
+fly volumes create sidekick_data --size 1 --region bos
+fly secrets set SIDEKICK_SECRET=$(openssl rand -hex 32)
+fly secrets set RESEND_API_KEY=re_... MAIL_FROM="Sidekick <verify@yourdomain.com>"
+fly deploy
+```
+
+Railway and Render work the same way — point them at the Dockerfile, mount a
+volume at `/data`, and set the same environment variables.
+
+Keep it to **one machine**. SQLite allows a single writer, so two instances
+would fight over the same file. That's the ceiling that eventually forces the
+move to Postgres, and it's a long way above where BU will be for a while.
+
+The server runs a configuration check at startup and **refuses to boot** if the
+signing secret or mail provider is missing, failing the health check so a bad
+deploy rolls back instead of serving a sign-in page that breaks the moment a
+student uses it.
+
 ## Turning on real signups
 
 Development prints codes to the console. To actually email them:

@@ -6,7 +6,17 @@ export const metadata: Metadata = {
   description:
     "A verified BU-only marketplace. Post anything you need done, set a price and a deadline, and have nearby verified students claim it.",
   applicationName: "Sidekick",
+  manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Sidekick", statusBarStyle: "default" },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  // A phone-shaped app has no business being zoomed by a desktop crawler.
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

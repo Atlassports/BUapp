@@ -11,11 +11,6 @@ import { dirname } from "node:path";
 const DB_PATH = process.env.SIDEKICK_DB ?? ".data/sidekick.db";
 
 const SCHEMA = `
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
--- Wait for a contended write lock rather than failing instantly. A dev server
--- and a build (or seed) touching the same file otherwise collide on startup.
-PRAGMA busy_timeout = 5000;
 
 CREATE TABLE IF NOT EXISTS users (
   id            TEXT PRIMARY KEY,
@@ -147,6 +142,23 @@ declare global {
 function open(): DatabaseSync {
   mkdirSync(dirname(DB_PATH), { recursive: true });
   const database = new DatabaseSync(DB_PATH);
+
+  // Order matters. busy_timeout has to be set before anything that takes a
+  // lock, or a contended statement fails instantly instead of waiting — which
+  // is exactly what happens when a build's parallel workers, or a dev server
+  // and a seed, open the same file at once.
+  database.exec("PRAGMA busy_timeout = 10000;");
+
+  // Switching journal modes needs an exclusive lock. If another connection
+  // already has the file open, it's almost certainly already in WAL, so a
+  // failure here is not worth aborting over.
+  try {
+    database.exec("PRAGMA journal_mode = WAL;");
+  } catch {
+    // Already WAL, or another connection holds the lock. Either way, continue.
+  }
+
+  database.exec("PRAGMA foreign_keys = ON;");
   database.exec(SCHEMA);
   return database;
 }
