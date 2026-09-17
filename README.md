@@ -15,9 +15,21 @@ Everything else is secondary, and the code reflects that.
 
 ```bash
 npm install
-npm run db:reset   # creates the SQLite file and seeds a believable campus
+npm run db:reset   # demo campus: 12 students, 24 tasks, 4 clubs
 npm run dev        # http://localhost:3000
 ```
+
+Two ways to fill the database, and they answer different questions:
+
+| | What you get | Use it to |
+|---|---|---|
+| `npm run db:reset` | A believable campus with demo data | See how the app looks with activity in it |
+| `npm run db:fresh` | Nothing at all | See exactly what launch day looks like |
+
+**Both wipe every account, including yours.** That is the usual reason a profile
+seems not to have saved — it did, and then the next reset deleted it. A deployed
+instance starts empty and is never seeded: the seed script refuses to run when
+it detects a production environment.
 
 Sign in with any seeded address — `alexr@bu.edu`, `priyan@bu.edu`,
 `marcust@bu.edu` — or any other `@bu.edu` address to create a new account. In

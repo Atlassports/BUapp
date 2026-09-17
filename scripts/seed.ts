@@ -6,6 +6,23 @@
  *   npm run db:reset
  */
 import { db, id, run } from "../lib/db";
+
+/**
+ * Demo data, for development only.
+ *
+ * Running this against a live instance would drop every real account and
+ * replace them with twelve invented students — so it refuses outright rather
+ * than trusting whoever typed the command to have meant it.
+ */
+if (process.env.NODE_ENV === "production" || process.env.FLY_APP_NAME) {
+  console.error(
+    "\nRefusing to seed: this looks like a production environment.\n" +
+      "The seed wipes every table. If you genuinely want demo data here,\n" +
+      "unset NODE_ENV and FLY_APP_NAME first, and be sure.\n",
+  );
+  process.exit(1);
+}
+
 import { undergraduateYears } from "../lib/academics";
 import { PLACE_BY_ID } from "../lib/geo";
 import type { CategoryId, TransportId } from "../lib/taxonomy";

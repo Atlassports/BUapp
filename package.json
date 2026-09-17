@@ -13,7 +13,8 @@
     "db:repair": "tsx --env-file-if-exists=.env scripts/repair-emails.ts",
     "test": "tsx --test tests/*.test.ts",
     "preview": "next build && node scripts/preview.mjs",
-    "push:keys": "node scripts/push-keys.mjs"
+    "push:keys": "node scripts/push-keys.mjs",
+    "db:fresh": "tsx --env-file-if-exists=.env scripts/fresh.ts"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.10.0",

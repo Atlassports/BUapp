@@ -71,6 +71,13 @@ fly secrets set ADMIN_EMAILS=you@bu.edu
 fly deploy
 ```
 
+**The deployed database starts empty.** No demo students, no invented listings —
+the first account created on it is yours. The seed script refuses to run when it
+detects a production environment, so there is no way to inject demo data into a
+live instance by mistake.
+
+To see what that looks like before you deploy: `npm run db:fresh`.
+
 Stay on **one machine**. SQLite allows a single writer; two instances would
 corrupt each other. That is the ceiling that eventually forces Postgres, and
 it is a long way past where BU will be for months.
